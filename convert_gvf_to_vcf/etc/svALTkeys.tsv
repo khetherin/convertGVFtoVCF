@@ -1,12 +1,23 @@
-KEY	LINE
-INV	##ALT=<ID=INV,Description="Inversion">
-INS	##ALT=<ID=INS,Description="Insertion">
-DUP	##ALT=<ID=DUP,Description="Duplication">
-DEL	##ALT=<ID=DEL,Description="Deletion">
-CNV	##ALT=<ID=CNV,Description="Copy number variable region">
-CNV:TR	##ALT=<ID=CNV:TR,Description="Tandem repeat determined based on DNA abundance">
-DUP:TANDEM	##ALT=<ID=DUP:TANDEM,Description="Tandem duplication">
-DEL:ME	##ALT=<ID=DEL:ME,Description="Deletion of mobile element relative to the reference">
-INS:ME	##ALT=<ID=INS:ME,Description="Insertion of mobile element relative to the reference">
-R	##ALT=<ID=R,Description="IUPAC code R = A/G">
-M	##ALT=<ID=M,Description="IUPAC code M = A/C">
+SymbolicAllele	Line	SequenceOntologyID	Name	Description
+None	None	SO:0001784	complex_structural_alteration	Complex structural alteration
+DEL:ME:LINE1	"##ALT=<ID=DEL:ME:LINE1,Description=""LINE1 deletion"">"	SO:0002069	LINE1_deletion	LINE1 deletion
+None	None	SO:1000032	delins	Deletion-Insertion
+DEL:ME:ALU	"##ALT=<ID=DEL:ME:ALU,Description=""Alu deletion"">"	SO:0002070	Alu_deletion	Alu deletion
+None	None	SO:1000005	complex_substitution	Complex substitution
+DUP:TANDEM	"##ALT=<ID=DUP:TANDEM,Description=""Tandem duplication"">"	SO:1000173	tandem_duplication	Tandem duplication
+INS	"##ALT=<ID=INS,Description=""Insertion"">"	SO:0001838	novel_sequence_insertion	Novel sequence insertion
+None	None	SO:0001059	sequence_alteration	Sequence alteration
+BND	None	SO:0002061	intrachromosomal_translocation	Intrachromosomal translocation
+INS:ME:SVA	"##ALT=<ID=INS:ME:SVA,Description=""SVA insertion"">"	SO:0002065	SVA_insertion	SVA insertion
+INV	"##ALT=<ID=INV,Description=""Inversion"">"	SO:1000036	inversion	Inversion
+INS:ME:LINE1	"##ALT=<ID=INS:ME:LINE1,Description=""Mobile element insertion LINE1"">"	SO:0002064	LINE1_insertion	LINE1 insertion
+INS:ME	"##ALT=<ID=INS:ME,Description=""Mobile element insertion"">"	SO:0001837	mobile_element_insertion	Mobile element insertion
+BND	None	SO:0002060	interchromosomal_translocation	Interchromosomal translocation
+INS:ME:ALU	"##ALT=<ID=INS:ME:ALU,Description=""Alu insertion"">"	SO:0002063	Alu_insertion	Alu insertion
+CNV	"##ALT=<ID=CNV,Description=""Copy number variable region"">"	SO:0001019	copy_number_variation	Copy number variation
+DUP	"##ALT=<ID=DUP,Description=""Duplication"">"	SO:0001742	copy_number_gain	Copy number gain
+DUP	"##ALT=<ID=DUP,Description=""Duplication"">"	SO:1000035	duplication	Duplication
+INS	"##ALT=<ID=INS,Description=""Insertion"">"	SO:0000667	insertion	Insertion
+DEL	"##ALT=<ID=DEL,Description=""Deletion"">"	SO:0000159	deletion	Deletion
+DEL	"##ALT=<ID=DEL,Description=""Deletion"">"	SO:0001743	copy_number_loss	Copy number loss
+CNV:TR	"##ALT=<ID=CNV:TR,Description=""Tandem repeat determined based on DNA abundance"">"	SO:0002096	short_tandem_repeat_variation	Short tandem repeat variation

@@ -1,0 +1,14 @@
+GVFPragma	VCFheadername	Type
+##file-date	fileDate	Pragma
+##gff-version	gff-version	Pragma
+##gvf-version	gvf-version	Pragma
+##species	species	Pragma
+##genome-build	genome-build	Pragma
+#sample	sample	NonEssentialPragma
+#Study_accession	Study_accession	NonEssentialPragma
+#Study_type	Study_type	NonEssentialPragma
+#Display_name	Display_name	NonEssentialPragma
+#Publication	Publication	NonEssentialPragma
+#Study	Study	NonEssentialPragma
+#Assembly_name	Assembly_name	NonEssentialPragma
+#subject	subject	NonEssentialPragma

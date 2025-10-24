@@ -1,0 +1,36 @@
+ID	Number	Type	Description	Relevance
+3'_inner_flank_link	.	String	Three prime inner flank link	DGVa
+5'_inner_flank_link	.	String	Five prime inner flank link	DGVa
+allele_number	.	Integer	allele number	DGVa
+assertion_method	.	String	assertion method	DGVa
+breakpoint_order	.	String	breakpoint order	DGVa
+clinical_significance	.	String	clinical significance	DGVa
+evidence_sequence_link	.	String	evidence sequence link	DGVa
+log2_value	.	Float	log2 value	DGVa
+mutation_order	.	Integer	mutation_order	DGVa
+Name	.	String	name	DGVa
+parent	.	String	parent	DGVa
+phenotype_description	.	String	phenotype description	DGVa
+phenotype_link	.	String	phenotype link	DGVa
+reciprocal_alignment	.	String	reciprocal alignment	DGVa
+remap_score	.	Float	remap score	DGVa
+samples	.	String	samples	DGVa
+submitter_variant_call_id	.	Integer	submitter variant call id	DGVa
+submitter_variant_region_id	.	Integer	submitter variant region id	DGVa
+support_count	.	Integer	support count	DGVa
+supporting_sequence_link	.	String	supporting sequence link	DGVa
+variant_call_description	.	String	variant call description	DGVa
+variant_region_so_id	.	String	variant region SO id	DGVa
+variant_call_so_id	.	String	variant call SO id	DGVa
+ID	.	String	A unique identifier.	GVF
+Variant_seq	.	String	Alleles found in an individual (or group of individuals).	GVF
+Reference_seq	.	String	The sequence corresponding to the seq id, start, end of the associated genomic sequence file.	GVF
+Alias	.	String	A secondary name.	GVF
+Variant_effect	.	String	The effect of a sequence alteration on a sequence feature.	GVF
+Variant_codon	.	String	The codons that overlap a feature as modified by the sequences in the Variant_seq attribute.	GVF
+Reference_codon	.	String	The codons that overlap a feature on the the reference genome.	GVF
+Variant_aa	.	String	The amino acids that overlap a feature as modified by the sequences in the Variant_seq attribute.	GVF
+Reference_aa	.	String	The amino acids that overlap a feature on the reference genome.	GVF
+Breakpoint_detail	.	String	Describes the source or destination of the a zero-length sequence alteration in the form seqid:start-end:strand.	GVF
+Sequence_context	.	String	A region of sequence context from the reference genome around a sequence alteration.	GVF
+Dbxref	.	String	A database cross=reference.	GVF

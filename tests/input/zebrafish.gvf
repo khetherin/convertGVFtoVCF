@@ -18,7 +18,9 @@
 #sample: sample_name=Zon9;subject_name=Zon9
 #sample: sample_name=JenMale7;subject_name=JenMale7
 #testing_unknown_pragma
-chromosome1	DGVa	copy_number_loss	77	78	.	+	.	ID=1;Name=nssv1412199;Alias=CNV28955;variant_call_so_id=SO:0001743;parent=nsv811094;Start_range=.,776614;End_range=786127,.;submitter_variant_call_id=CNV28955;sample_name=Wilds2-3;remap_score=.98857;Variant_seq=.
+chromosome1	DGVa	copy_number_loss	1	2	.	+	.	ID=1;Name=nssv1412199;Alias=CNV28955;variant_call_so_id=SO:0001743;parent=nsv811094;Start_range=.,1;End_range=2,.;submitter_variant_call_id=CNV28955;sample_name=Wilds2-3;remap_score=.98857;Variant_seq=.
+chromosome1	DGVa	copy_number_loss	77	78	.	+	.	ID=1;Name=nssv1412199;Alias=CNV28955;variant_call_so_id=SO:0001743;parent=nsv811094;Start_range=776614,776914;End_range=786127,786427;submitter_variant_call_id=CNV28955;sample_name=Wilds2-3;remap_score=.98857;Variant_seq=.
 chromosome1	DGVa	copy_number_loss	127	132	.	+	.	ID=12;Name=nssv1406143;Alias=CNV22899;variant_call_so_id=SO:0001743;parent=nsv811095;Start_range=.,1277246;End_range=1320592,.;submitter_variant_call_id=CNV22899;sample_name=Zon9;remap_score=.87402;Variant_seq=.
 chromosome1	DGVa	copy_number_gain	128	132	.	+	.	ID=13;Name=nssv1389474;Alias=CNV6230;variant_call_so_id=SO:0001742;parent=nsv811095;Start_range=.,1284210;End_range=1320592,.;submitter_variant_call_id=CNV6230;sample_name=JenMale7;remap_score=.69625;Variant_seq=.
 chromosome1	DGVa	copy_number_gain	128	132	.	+	.	ID=14;Name=nssv1388955;Alias=CNV5711;variant_call_so_id=SO:0001742;parent=nsv811095;Start_range=.,1284210;End_range=1320592,.;submitter_variant_call_id=CNV5711;sample_name=JenMale6;remap_score=.85344;Variant_seq=.;allele_count=3
+chromosome1	DGVa	copy_number_gain	128	129	.	+	.	ID=14;Name=nssv1388955;Alias=CNV5711;variant_call_so_id=SO:0001742;parent=nsv811095;Start_range=.,128;End_range=129,.;submitter_variant_call_id=CNV5711;sample_name=JenMale6;remap_score=.85344;Variant_seq=.;allele_count=3;Dbxref=mydata;Variant_reads=3

@@ -1,0 +1,11 @@
+Attribute	Field	Key
+allele_count	INFO	AC
+allele_frequency	INFO	AF
+ciend	INFO	CIEND
+copy_number	INFO	CN
+mate_id	INFO	MATEID
+Total_reads	INFO	DP
+Variant_freq	INFO	AF
+Genotype	FORMAT	GT
+Zygosity	FORMAT	GT
+Variant_reads	INFO	AD
