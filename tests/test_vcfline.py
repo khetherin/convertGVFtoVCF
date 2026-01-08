@@ -109,16 +109,19 @@ class TestVcfLineBuilder(unittest.TestCase):
         assert end_range_upper_bound == "."
 
     def test_generate_symbolic_allele(self):
-        # TODO: This seems incorrect
+        # imprecise variant
         vcf_value_from_gvf_attribute = {"Variant_seq":".", "Start_range":".,776614","End_range":"786127,."}
-        symbolic_allele, info_dict, lines_standard_alt, lines_standard_info = self.vcf_builder.generate_symbolic_allele(vcf_value_from_gvf_attribute, pos=76, end=77, length=1, ref='.', so_type='copy_number_loss')
+        symbolic_allele, info_dict = self.vcf_builder.generate_symbolic_allele(vcf_value_from_gvf_attribute, pos=76, end=77, length=1, ref='.', so_type='copy_number_loss')
+        assert symbolic_allele == '<DEL>'
+        assert info_dict == {'END': '77', 'IMPRECISE': 'IMPRECISE', 'CIPOS': '.,776538', 'CIEND': '786050,.', 'SVLEN': '1'}
+        # precise variant
+        vcf_value_from_gvf_attribute = {"Variant_seq": "."}
+        symbolic_allele, info_dict = self.vcf_builder.generate_symbolic_allele(vcf_value_from_gvf_attribute, pos=76,
+                                                                               end=77, length=1, ref='.',
+                                                                               so_type='copy_number_loss')
         assert symbolic_allele == '<DEL>'
         assert info_dict == {'END': '76', 'IMPRECISE': None, 'CIPOS': None, 'CIEND': None, 'SVLEN': '1'}
-        assert lines_standard_alt == ['##ALT=<ID=DEL,Description="Deletion">']
-        assert lines_standard_info== [
-            '##INFO=<ID=END,Number=1,Type=Integer,Description="End position on CHROM (used with symbolic alleles; see below) or End position of the longest variant described in this record">',
-            '##INFO=<ID=SVLEN,Number=A,Type=String,Description="Length of structural variant">'
-        ]
+
 
     def test_generate_info_field_symbolic_allele(self):
         end = 100
