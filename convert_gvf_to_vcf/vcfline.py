@@ -156,16 +156,16 @@ class VcfLineBuilder:
         """
         if "Start_range" in vcf_value_from_gvf_attribute:
             # Set value to the start range found in the GVF attribute
-            start_range_lower_bound = vcf_value_from_gvf_attribute["Start_range"].split(",")[0]
-            start_range_upper_bound = vcf_value_from_gvf_attribute["Start_range"].split(",")[1]
+            start_range_lower_bound = vcf_value_from_gvf_attribute["Start_range"][0]
+            start_range_upper_bound = vcf_value_from_gvf_attribute["Start_range"][1]
         else:
             # Setting values for a precise variant. Start Ranges only apply to imprecise variants.
             start_range_lower_bound = None
             start_range_upper_bound = None
         if "End_range" in vcf_value_from_gvf_attribute:
             # Set value to the end range found in the GVF attribute
-            end_range_lower_bound = vcf_value_from_gvf_attribute["End_range"].split(",")[0]
-            end_range_upper_bound = vcf_value_from_gvf_attribute["End_range"].split(",")[1]
+            end_range_lower_bound = vcf_value_from_gvf_attribute["End_range"][0]
+            end_range_upper_bound = vcf_value_from_gvf_attribute["End_range"][1]
         else:
             # Set value for a precise variant. End Ranges only apply to imprecise variants.
             end_range_lower_bound = None
@@ -336,6 +336,7 @@ class VcfLineBuilder:
         :param start_range_upper_bound: start range co-ordinate second number
         :return: ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound
         """
+
         # Converting start_range co-ordinates
         # if the lower bound is unknown for the imprecise variant, pass this to CIPOS (i.e. CIPOS=.,0)
         if start_range_lower_bound == ".":
