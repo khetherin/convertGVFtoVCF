@@ -95,7 +95,7 @@ class TestAssistingConverter(unittest.TestCase):
         expected_gvf_attribute_dictionary = {'ID': '1', 'Name': 'nssv1412199', 'Alias': 'CNV28955', 'parent': 'nsv811094', 'Start_range': ['.', '1'], 'End_range': ['2', '.'], 'sample_name': 'Wilds2-3', 'Genotype': '0:1'}
         assert gvf_attribute_dictionary == expected_gvf_attribute_dictionary
         # testing vcf_info_values
-        expected_info_values = {'ID': '1', 'NAME': 'nssv1412199', 'ALIAS': 'CNV28955'}
+        expected_info_values = {'ID': '1', 'NAME': 'nssv1412199', 'ALIAS': 'CNV28955', 'PARENT': 'nsv811094', 'SAMPLENAME': 'Wilds2-3'}
         assert vcf_info_values == expected_info_values
         # testing vcf_format_values
         expected_format_values = {'Wilds2-3': {'GT': '0:1'}}

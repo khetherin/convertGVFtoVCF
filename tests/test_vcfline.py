@@ -1,11 +1,9 @@
 import os
 import unittest
 
-from Bio.PDB import refmat
-
 from convert_gvf_to_vcf.convertGVFtoVCF import generate_vcf_header_structured_lines
 from convert_gvf_to_vcf.gvffeature import GvfFeatureline
-from convert_gvf_to_vcf.vcfline import VcfLine, VcfLineBuilder
+from convert_gvf_to_vcf.vcfline import VcfLine, VcfLineBuilder, VariantRange
 from convert_gvf_to_vcf.lookup import Lookup
 
 class TestVcfLineBuilder(unittest.TestCase):
@@ -60,7 +58,7 @@ class TestVcfLineBuilder(unittest.TestCase):
 
     def test_build_vcf_line(self):
         # Set up GVF line object
-        gvf_attributes = 'ID=1;Name=nssv1412199;Alias=CNV28955;variant_call_so_id=SO:0001743;parent=nsv811094;Start_range=.,776614;End_range=786127,.;submitter_variant_call_id=CNV28955;sample_name=Wilds2-3;remap_score=.98857;Variant_seq=.'
+        gvf_attributes = ('ID=1;Name=nssv1412199;Alias=CNV28955;variant_call_so_id=SO:0001743;parent=nsv811094;Start_range=.,776614;End_range=786127,.;submitter_variant_call_id=CNV28955;sample_name=Wilds2-3;remap_score=.98857;Variant_seq=.')
         gvf_line_object = GvfFeatureline('chromosome1', 'DGVa', 'copy_number_loss', '77', '78', '.', '+', '.', gvf_attributes )
         vcf_line = self.vcf_builder.build_vcf_line(gvf_line_object)
         assert vcf_line.chrom == 'chromosome1'
@@ -87,32 +85,87 @@ class TestVcfLineBuilder(unittest.TestCase):
 
     def test_create_coordinate_range(self):
         # with range
-        vcf_value_from_gvf_attribute_with_range={'Start_range': ['.', '1'], 'End_range': ['2', '.']}
-        start_range_lower_bound, start_range_upper_bound, end_range_lower_bound, end_range_upper_bound = self.vcf_builder.create_coordinate_range(vcf_value_from_gvf_attribute_with_range, pos=int(1),end=int(2))
+        vcf_value_from_gvf_attribute_with_range={'ID': '1', 'Name': 'nssv1412199', 'Alias': 'CNV28955', 'variant_call_so_id': 'SO:0001743',
+         'parent': 'nsv811094', "Start_range":[".","776614"],"End_range":["786127","."],
+         'submitter_variant_call_id': 'CNV28955', 'sample_name': 'Wilds2-3', 'remap_score': '.98857',
+         'Variant_seq': '.'}
+        start_range_lower_bound, start_range_upper_bound, end_range_lower_bound, end_range_upper_bound = self.vcf_builder.create_coordinate_range(vcf_value_from_gvf_attribute_with_range)
         assert start_range_lower_bound == "."
-        assert start_range_upper_bound == "1"
-        assert end_range_lower_bound == "2"
+        assert start_range_upper_bound == "776614"
+        assert end_range_lower_bound == "786127"
         assert end_range_upper_bound == "."
         # without range
-        vcf_value_from_gvf_attribute_without_range={}
+        vcf_value_from_gvf_attribute_without_range={'ID': '1', 'Name': 'nssv1412199', 'Alias': 'CNV28955', 'variant_call_so_id': 'SO:0001743',
+         'parent': 'nsv811094',
+         'submitter_variant_call_id': 'CNV28955', 'sample_name': 'Wilds2-3', 'remap_score': '.98857',
+         'Variant_seq': '.'}
         start_range_lower_bound, start_range_upper_bound, end_range_lower_bound, end_range_upper_bound = self.vcf_builder.create_coordinate_range(
-            vcf_value_from_gvf_attribute_with_range, pos=1, end=2)
-        assert start_range_lower_bound == "."
-        assert start_range_upper_bound == "1"
-        assert end_range_lower_bound == "2"
-        assert end_range_upper_bound == "."
+            vcf_value_from_gvf_attribute_without_range)
+        assert start_range_lower_bound is None
+        assert start_range_upper_bound is None
+        assert end_range_lower_bound is None
+        assert end_range_upper_bound is None
+
+    def test_has_svclaim_abundance_evidence(self):
+        # full values
+        vcf_value_from_gvf_attribute= {'ID': '94', 'Name': 'essv7098719', 'Alias': 'TD_DGRP_795_RAL-357',
+                                       'variant_call_so_id': 'SO:1000173', 'parent': 'esv2825690',
+                                       'submitter_variant_call_id': 'TD_DGRP_795_RAL-357', 'sample_name': 'RAL-357',
+                                       'Variant_seq': '.'}
+        alt = "<DUP:TANDEM>"
+        info_dict = {'END': '118289', 'IMPRECISE': None, 'CIPOS': None, 'CIEND': None, 'SVLEN': '187'}
+        is_abundant = self.vcf_builder.has_svclaim_abundance_evidence(vcf_value_from_gvf_attribute, alt, info_dict)
+        assert is_abundant is True
+        #testing each value individually because if any of these values are True, the function returns True
+        vcf_value_from_gvf_attribute = {'Variant_Method': 'Array_CGH'}
+        is_abundant = self.vcf_builder.has_svclaim_abundance_evidence(vcf_value_from_gvf_attribute, alt, info_dict)
+        assert is_abundant == True
+        vcf_value_from_gvf_attribute = {'variant_region_description': 'inferred something'}
+        is_abundant = self.vcf_builder.has_svclaim_abundance_evidence(vcf_value_from_gvf_attribute, alt, info_dict)
+        assert is_abundant == True
+        vcf_value_from_gvf_attribute = {'variant_call_description': 'have inferred something else'}
+        is_abundant = self.vcf_builder.has_svclaim_abundance_evidence(vcf_value_from_gvf_attribute, alt, info_dict)
+        assert is_abundant == True
+        vcf_value_from_gvf_attribute = {'Variant_seq': '.'}
+        is_abundant = self.vcf_builder.has_svclaim_abundance_evidence(vcf_value_from_gvf_attribute,alt,info_dict)
+        assert is_abundant == True
+        vcf_value_from_gvf_attribute = {'variant_region_so_id': 'SO:0001019'}
+        is_abundant = self.vcf_builder.has_svclaim_abundance_evidence(vcf_value_from_gvf_attribute,alt,info_dict)
+        assert is_abundant == True
+        vcf_value_from_gvf_attribute = {'variant_call_so_id': 'SO:0001742'}
+        is_abundant = self.vcf_builder.has_svclaim_abundance_evidence(vcf_value_from_gvf_attribute,alt,info_dict)
+        assert is_abundant == True
+        info_dict = {'IMPRECISE': True}
+        is_abundant = self.vcf_builder.has_svclaim_abundance_evidence(vcf_value_from_gvf_attribute,alt,info_dict)
+        assert is_abundant == True
+
+    def test_get_alt(self):
+        'chromosome1	DGVa	copy_number_loss	77	78	.	+	.	ID=1;Name=nssv1412199;Alias=CNV28955;variant_call_so_id=SO:0001743;parent=nsv811094;Start_range=.,776614;End_range=786127,.;submitter_variant_call_id=CNV28955;sample_name=Wilds2-3;remap_score=.98857;Variant_seq=."'
+        vcf_value_from_gvf_attribute = {"Variant_seq":".", "Start_range":["." ,"776614"],"End_range":["786127","."]}
+        pos, ref, alt, info_dict = self.vcf_builder.get_alt(vcf_value_from_gvf_attribute, chrom='chromosome1', pos=77, end=78, length=1, ref='', so_type='copy_number_loss')
+        assert pos == 76
+        assert ref == 'T'
+        assert alt == '<DEL>'
+        assert info_dict == {'END': '76', 'IMPRECISE': None, 'CIPOS': None, 'CIEND': None, 'SVLEN': '1'}
 
     def test_generate_symbolic_allele(self):
         # TODO: This seems incorrect
-        vcf_value_from_gvf_attribute = {"Variant_seq":".", "Start_range":".,776614","End_range":"786127,."}
+        vcf_value_from_gvf_attribute = {"Variant_seq":".", "Start_range":[".","776614"],"End_range":["786127","."]}
         symbolic_allele, info_dict, lines_standard_alt, lines_standard_info = self.vcf_builder.generate_symbolic_allele(vcf_value_from_gvf_attribute, pos=76, end=77, length=1, ref='.', so_type='copy_number_loss')
         assert symbolic_allele == '<DEL>'
-        assert info_dict == {'END': '76', 'IMPRECISE': None, 'CIPOS': None, 'CIEND': None, 'SVLEN': '1'}
+        assert info_dict == {'END': '77', 'IMPRECISE': 'IMPRECISE', 'CIPOS': '.,776538', 'CIEND': '786050,.', 'SVLEN': '1', 'SVCLAIM': 'D'}
         assert lines_standard_alt == ['##ALT=<ID=DEL,Description="Deletion">']
-        assert lines_standard_info== [
+        assert lines_standard_info == [
+            '##INFO=<ID=SVCLAIM,Number=A,Type=String,Description="Claim made by the structural variant call. Valid values are D, J, DJ for abundance, adjacency and both respectively">',
             '##INFO=<ID=END,Number=1,Type=Integer,Description="End position on CHROM (used with symbolic alleles; see below) or End position of the longest variant described in this record">',
-            '##INFO=<ID=SVLEN,Number=A,Type=String,Description="Length of structural variant">'
+            '##INFO=<ID=SVLEN,Number=A,Type=Integer,Description="Length of structural variant">',
+            '##INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Imprecise structural variation">',
+            '##INFO=<ID=CIPOS,Number=.,Type=Integer,Description="Confidence interval around POS for symbolic structural variants">',
+            '##INFO=<ID=CIEND,Number=.,Type=Integer,Description="Confidence interval around END for symbolic structural variants">'
         ]
+
+
+
 
     def test_generate_info_field_symbolic_allele(self):
         end = 100
@@ -125,11 +178,9 @@ class TestVcfLineBuilder(unittest.TestCase):
         start_range_lower_bound = 1
         start_range_upper_bound = 2
         symbolic_allele = "<INS>"
+        variant_range_coordinates= VariantRange(pos,start_range_lower_bound, start_range_upper_bound, end, end_range_lower_bound, end_range_upper_bound)
         info_dict, is_imprecise = self.vcf_builder.generate_info_field_symbolic_allele(
-            end, end_range_lower_bound, end_range_upper_bound,
-            length, pos, ref,
-            start_range_lower_bound, start_range_upper_bound,
-            symbolic_allele
+            variant_range_coordinates ,length, ref, symbolic_allele
         )
         assert info_dict == {'END': '13', 'IMPRECISE': 'IMPRECISE', 'CIPOS': '0,1', 'CIEND': '0,100', 'SVLEN': '13'}
         assert is_imprecise is True
@@ -145,13 +196,12 @@ class TestVcfLineBuilder(unittest.TestCase):
         start_range_lower_bound = 1
         start_range_upper_bound = 2
         symbolic_allele = "<INS>"
+
+        variant_range_coordinates= VariantRange(pos,start_range_lower_bound, start_range_upper_bound, end, end_range_lower_bound, end_range_upper_bound)
         info_ciend_value, info_cipos_value, info_end_value, info_imprecise_value, is_imprecise = self.vcf_builder.generate_info_field_for_imprecise_variant(
-            end, end_range_lower_bound, end_range_upper_bound,
-            info_end_value,
-            length, pos, ref,
-            start_range_lower_bound, start_range_upper_bound,
-            symbolic_allele
-        )
+            variant_range_coordinates,
+            length, ref,
+            symbolic_allele)
         assert info_ciend_value == "0,100"
         assert info_cipos_value == "0,1"
         assert info_end_value == "13"
@@ -173,28 +223,39 @@ class TestVcfLineBuilder(unittest.TestCase):
         pos=1
         start_range_lower_bound=1
         start_range_upper_bound=10
-        ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound = self.vcf_builder.calculate_CIPOS_and_CIEND(end, end_range_lower_bound, end_range_upper_bound, pos, start_range_lower_bound, start_range_upper_bound)
+        variant_range_coordinates= VariantRange(pos,start_range_lower_bound, start_range_upper_bound, end, end_range_lower_bound, end_range_upper_bound)
+        ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound = self.vcf_builder.calculate_CIPOS_and_CIEND(variant_range_coordinates)
         assert (ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound) == (-11, 0, 0, 9)
-        # unknown precise variant
+        # unknown imprecise variant
         end=122
         end_range_lower_bound=122
         end_range_upper_bound="."
         pos=1
         start_range_lower_bound="."
         start_range_upper_bound=10
-        ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound = self.vcf_builder.calculate_CIPOS_and_CIEND(end, end_range_lower_bound, end_range_upper_bound, pos, start_range_lower_bound, start_range_upper_bound)
+        variant_range_coordinates= VariantRange(pos,start_range_lower_bound, start_range_upper_bound, end, end_range_lower_bound, end_range_upper_bound)
+        ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound = self.vcf_builder.calculate_CIPOS_and_CIEND(variant_range_coordinates)
         assert (ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound) == (0, ".", ".", 9)
-
+        # precise variant
+        end=122
+        end_range_lower_bound = None
+        end_range_upper_bound = None
+        pos= 1
+        start_range_lower_bound = None
+        start_range_upper_bound = None
+        variant_range_coordinates= VariantRange(pos,start_range_lower_bound, start_range_upper_bound, end, end_range_lower_bound, end_range_upper_bound)
+        ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound = self.vcf_builder.calculate_CIPOS_and_CIEND(variant_range_coordinates)
+        assert (ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound) == (None, None, None, None)
     def test_get_alt(self):
             'chromosome1	DGVa	copy_number_loss	77	78	.	+	.	ID=1;Name=nssv1412199;Alias=CNV28955;variant_call_so_id=SO:0001743;parent=nsv811094;Start_range=.,776614;End_range=786127,.;submitter_variant_call_id=CNV28955;sample_name=Wilds2-3;remap_score=.98857;Variant_seq=."'
-            vcf_value_from_gvf_attribute = {"Variant_seq": ".", "Start_range": ".,776614", "End_range": "786127,."}
+            vcf_value_from_gvf_attribute = {"Variant_seq": ".", "Start_range": [".","776614"], "End_range": ["786127","."]}
             pos, ref, alt, info_dict = self.vcf_builder.get_alt(vcf_value_from_gvf_attribute, chrom='chromosome1',
                                                                 pos=77, end=78, length=1, ref='',
                                                                 so_type='copy_number_loss')
             assert pos == 76
             assert ref == 'T'
             assert alt == '<DEL>'
-            assert info_dict == {'END': '76', 'IMPRECISE': None, 'CIPOS': None, 'CIEND': None, 'SVLEN': '1'}
+            assert info_dict == {'END': '78', 'IMPRECISE': 'IMPRECISE', 'CIPOS': '.,776537', 'CIEND': '786049,.', 'SVLEN': '1', 'SVCLAIM': 'D'}
 
     def test_check_ref(self):
         assert self.vcf_builder.check_ref('A') == 'A'

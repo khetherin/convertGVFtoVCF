@@ -4,7 +4,9 @@ The purpose of this file is to populate for each field of a VCF line (and perfor
 
 from Bio import SeqIO
 from convert_gvf_to_vcf.assistingconverter import convert_gvf_attributes_to_vcf_values
-
+from convert_gvf_to_vcf.logger import logger
+from dataclasses import dataclass
+from typing import Optional,Union
 
 
 def extract_reference_allele(fasta_file, chromosome_name, position, end):
@@ -24,6 +26,25 @@ def extract_reference_allele(fasta_file, chromosome_name, position, end):
         reference_allele = reference_allele + records_dictionary[chromosome_name].seq[position]
     records_dictionary.close()
     return reference_allele
+
+@dataclass
+class VariantRange:
+    """
+    This is responsible for representing the co-ordinate ranges of a structural variant.
+    Attributes:
+        pos: start
+        start_range_lower_bound: can be int "." or None
+        start_range_upper_bound: can be int "." or None
+        end: end
+        end_range_lower_bound: can be int "." or None
+        end_range_upper_bound: can be int "." or None
+    """
+    pos: int
+    start_range_lower_bound: Optional[Union[int, str]] #value can be int, "." or None
+    start_range_upper_bound: Optional[Union[int, str]] #value can be int, "." or None
+    end: int
+    end_range_lower_bound: Optional[Union[int, str]] #value can be int, "." or None
+    end_range_upper_bound: Optional[Union[int, str]] #value can be int, "." or None
 
 class VcfLineBuilder:
     """
@@ -128,7 +149,7 @@ class VcfLineBuilder:
             else:
                 checked_reference_allele = ref_allele_to_be_checked
         else:
-            print("WARNING: Ref allele must be a string. Setting to missing value.", ref_allele_to_be_checked)
+            logger.warning(f"Ref allele must be a string: {ref_allele_to_be_checked}. Setting to missing value.")
             checked_reference_allele = "."
         return checked_reference_allele
 
@@ -144,13 +165,13 @@ class VcfLineBuilder:
             if assembly_file:
                 reference_allele = extract_reference_allele(assembly_file, chrom, pos, end)
             else:
-                print("WARNING: No reference provided. Placeholder inserted for Reference allele.")
+                logger.warning("No reference provided. Placeholder inserted for Reference allele.")
                 reference_allele = "."
         if reference_allele != ".":
             reference_allele = self.check_ref(reference_allele)
         return reference_allele
 
-    def create_coordinate_range(self, vcf_value_from_gvf_attribute, pos, end):
+    def create_coordinate_range(self, vcf_value_from_gvf_attribute):
         """ Create the start and end range using the dictionary of GVF attributes and the pos and end
         :return: start_range_lower_bound, start_range_upper_bound, end_range_lower_bound, end_range_upper_bound
         """
@@ -172,120 +193,55 @@ class VcfLineBuilder:
             end_range_upper_bound = None
         return start_range_lower_bound, start_range_upper_bound, end_range_lower_bound, end_range_upper_bound
 
-
-    def generate_symbolic_allele(self, vcf_value_from_gvf_attribute, pos, end, length, ref, so_type):
-        """ Generates the symbolic allele and stores the corresponding metainformation lines.
-        Also provides the dictionary for the info field that correspond to the symbolic allele
-        :return: symbolic_allele, info_dict
-        """
-        symbolic_allele_id = self.reference_lookup.symbolic_allele_dictionary[so_type][1]
-        symbolic_allele = f'<{symbolic_allele_id}>'
-
-        if symbolic_allele_id in self.all_possible_lines_dictionary["ALT"]:
-            self.field_lines_dictionary["ALT"].append(self.all_possible_lines_dictionary["ALT"][symbolic_allele_id])
-
-        # Creating start/end co-ordinate ranges
-        (
-            start_range_lower_bound, start_range_upper_bound,
-            end_range_lower_bound, end_range_upper_bound
-        ) = self.create_coordinate_range(vcf_value_from_gvf_attribute, pos, end)
-
-        info_dict, is_imprecise = self.generate_info_field_symbolic_allele(end,
-                                                                           end_range_lower_bound,
-                                                                           end_range_upper_bound,
-                                                                           length, pos, ref,
-                                                                           start_range_lower_bound,
-                                                                           start_range_upper_bound,
-                                                                           symbolic_allele)
-
-        # for all variants (precise and imprecise) store INFO lines for the header
-        self.field_lines_dictionary["INFO"].append(self.all_possible_lines_dictionary["INFO"]["END"])
-        self.field_lines_dictionary["INFO"].append(self.all_possible_lines_dictionary["INFO"]["SVLEN"])
-
-        # for imprecise variants only
-        if is_imprecise:
-            self.field_lines_dictionary["INFO"].append(self.all_possible_lines_dictionary["INFO"]["IMPRECISE"])
-            self.field_lines_dictionary["INFO"].append(self.all_possible_lines_dictionary["INFO"]["CIPOS"])
-            self.field_lines_dictionary["INFO"].append(self.all_possible_lines_dictionary["INFO"]["CIEND"])
-        return symbolic_allele, info_dict
-
-    def generate_info_field_symbolic_allele(self, end,
-                                            end_range_lower_bound,
-                                            end_range_upper_bound,
-                                            length, pos, ref,
-                                            start_range_lower_bound,
-                                            start_range_upper_bound, symbolic_allele):
+    def generate_info_field_symbolic_allele(self,
+                                            variant_range_coordinates,
+                                            length, ref, symbolic_allele):
         """ Generate the dictionary INFO field values for the symbolic allele.
-        :param end: gvf_feature_line_object.end
-        :param end_range_lower_bound: end range co-ordinate first number
-        :param end_range_upper_bound: end range co-ordinate second number
-        :param info_end_value: INFO field called "END" - default set to None
+        :param variant_range_coordinates: object with attribues:pos, start_range_lower_bound, start_range_upper_bound, end, end_range_lower_bound, end_range_upper_bound
         :param length:  end - pos
-        :param pos: gvf_feature_line_object.start
-        :param ref: refernece allele
-        :param start_range_lower_bound: start range co-ordinate first number
-        :param start_range_upper_bound: start range co-ordinate second number
+        :param ref: reference allele
         :param symbolic_allele: symbolic allele for ALT
         :return:
             info_dict: dict of key-value pairs for INFO field (END, IMPRECISE, CIPOS, CIEND, SVLEN),
             is_imprecise: boolean
         """
-        # setting up fields to be inserted into INFO. Default is None
-        info_end_key = "END"
-        info_end_value = None
-        info_imprecise_key = "IMPRECISE"
-        info_imprecise_value = None
-        info_cipos_key = "CIPOS"
-        info_cipos_value = None
-        info_ciend_key = "CIEND"
-        info_ciend_value = None
-        info_svlen_key = "SVLEN"
-        info_svlen_value = None
+
+        # Set up info dictionary
+        info_dict = {}
+        # Setting up the info keys with None as a default value
+        for info_key in ["END", "IMPRECISE", "CIPOS", "CIEND", "SVLEN"]:
+            info_dict[info_key] = None
         if length:
-            info_svlen_value = str(length)
-        # Precise variant: keep all None values, set info_end_value and is_imprecise
-        if (
-                start_range_lower_bound is None or
-                start_range_upper_bound is None or
-                end_range_lower_bound is None or
-                end_range_upper_bound is None
-        ):
-            info_end_value, is_imprecise = self.generate_info_field_for_precise_variant(pos, ref)
+            info_dict["SVLEN"] = str(length)
+        # Calculate precise or imprecise
+        range_keys = ["start_range_lower_bound", "start_range_upper_bound", "end_range_lower_bound", "end_range_upper_bound"]
+        # in the case of a PRECISE variant
+        if any(range_key is None for range_key in range_keys):
+            info_dict["END"], is_imprecise = self.generate_info_field_for_precise_variant(variant_range_coordinates.pos, ref)
+        # IMPRECISE variants
         else:
-            # Imprecise variant: change none values accordingly
-            (info_ciend_value, info_cipos_value,
-             info_end_value, info_imprecise_value,
-             is_imprecise) = self.generate_info_field_for_imprecise_variant(
-                end,
-                end_range_lower_bound, end_range_upper_bound,
-                info_end_value,
-                # info_ciend_value, info_cipos_value, info_end_value, info_imprecise_value,
-                length, pos, ref,
-                start_range_lower_bound, start_range_upper_bound, symbolic_allele)
-        # Set up INFO values for structural variants and store in the info_dict
-        info_dict = {
-            info_end_key: info_end_value,
-            info_imprecise_key: info_imprecise_value,
-            info_cipos_key: info_cipos_value,
-            info_ciend_key: info_ciend_value,
-            info_svlen_key: info_svlen_value
-        }
+            info_fields_for_imprecise_variants = self.generate_info_field_for_imprecise_variant(
+                variant_range_coordinates,
+                length, ref,
+                symbolic_allele
+            )
+            info_dict.update({
+                "CIEND": info_fields_for_imprecise_variants[0],
+                "CIPOS": info_fields_for_imprecise_variants[1],
+                "END": info_fields_for_imprecise_variants[2],
+                "IMPRECISE": info_fields_for_imprecise_variants[3]})
+            # Set the imprecise flag
+            is_imprecise = info_fields_for_imprecise_variants[4]
         return info_dict, is_imprecise
 
-    def generate_info_field_for_imprecise_variant(self, end, end_range_lower_bound, end_range_upper_bound,
-                                                  info_end_value,
-                                                  length, pos, ref, start_range_lower_bound, start_range_upper_bound,
+    def generate_info_field_for_imprecise_variant(self,
+                                                  variant_range_coordinates,
+                                                  length, ref,
                                                   symbolic_allele):
         """ Generate the INFO field values for an imprecise variant.
-        :param end: gvf_feature_line_object.end
-        :param end_range_lower_bound: end range co-ordinate first number
-        :param end_range_upper_bound: end range co-ordinate second number
-        :param info_end_value: INFO field called "END" - default set to None
+        :param variant_range_coordinates: object with attribues:pos, start_range_lower_bound, start_range_upper_bound, end, end_range_lower_bound, end_range_upper_bound
         :param length:  end - pos
-        :param pos: gvf_feature_line_object.start
         :param ref: refernece allele
-        :param start_range_lower_bound: start range co-ordinate first number
-        :param start_range_upper_bound: start range co-ordinate second number
         :param symbolic_allele: symbolic allele for ALT
         :return:
             info_ciend_value(string i.e "0,100"),
@@ -298,21 +254,23 @@ class VcfLineBuilder:
         is_imprecise = True
         info_imprecise_value = "IMPRECISE"
         ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound = self.calculate_CIPOS_and_CIEND(
-            end, end_range_lower_bound, end_range_upper_bound, pos, start_range_lower_bound, start_range_upper_bound)
+            variant_range_coordinates)
+            # end, end_range_lower_bound, end_range_upper_bound, pos, start_range_lower_bound, start_range_upper_bound)
 
         # form the CIPOS value
-        info_cipos_value = str(cipos_lower_bound) + "," + str(cipos_upper_bound)
+        info_cipos_value =  f"{str(cipos_lower_bound)},{str(cipos_upper_bound)}" if all(cipos_bound is not None for cipos_bound in (cipos_lower_bound, cipos_upper_bound)) else None
         # form the CIEND value
-        info_ciend_value = str(ciend_lower_bound) + "," + str(ciend_upper_bound)
+        info_ciend_value = f"{str(ciend_lower_bound)},{str(ciend_upper_bound)}" if all(ciend_bound is not None for ciend_bound in (cipos_lower_bound, cipos_upper_bound)) else None
 
+        # Determine the END value based on the symbolic allele
         if symbolic_allele == "<INS>":
-            info_end_value = str(pos + len(ref) - 1)
-        elif symbolic_allele in {"<DEL>", "<DUP>", "<INV>", "<CNV>"}:
-            info_end_value = str(pos + length)
+            info_end_value = str(variant_range_coordinates.pos + len(ref) - 1)
+        elif any(sym in symbolic_allele for sym in {"DEL", "DUP", "INV", "CNV"}):
+            info_end_value = str(variant_range_coordinates.pos + length)
         elif symbolic_allele == "<*>":
-            info_end_value = str(pos + len(ref))
+            info_end_value = str(variant_range_coordinates.pos + len(ref))
         else:
-            print("Cannot identify symbolic allele")
+            logger.warning(f"Cannot identify symbolic allele: {symbolic_allele}")
         return info_ciend_value, info_cipos_value, info_end_value, info_imprecise_value, is_imprecise
 
     def generate_info_field_for_precise_variant(self, pos, ref):
@@ -325,41 +283,129 @@ class VcfLineBuilder:
         info_end_value = str(pos + len(ref) - 1)
         return info_end_value, is_imprecise
 
-    def calculate_CIPOS_and_CIEND(self, end, end_range_lower_bound, end_range_upper_bound, pos, start_range_lower_bound,
-                                  start_range_upper_bound):
+    def calculate_CIPOS_and_CIEND(self,
+                                  variant_range_cordinates):
         """Converts start and end range co-ordinates into CIPOS and CIEND (for VCF info field).
-        :param end: gvf_feature_line_object.end
-        :param end_range_lower_bound: end range co-ordinate first number
-        :param end_range_upper_bound: end range co-ordinate second number
-        :param pos: gvf_feature_line_object.start
-        :param start_range_lower_bound: start range co-ordinate first number
-        :param start_range_upper_bound: start range co-ordinate second number
+        :param variant_range_cordinates:  object with attributes:pos, start_range_lower_bound, start_range_upper_bound, end, end_range_lower_bound, end_range_upper_bound
         :return: ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound
         """
         # Converting start_range co-ordinates
-        # if the lower bound is unknown for the imprecise variant, pass this to CIPOS (i.e. CIPOS=.,0)
-        if start_range_lower_bound == ".":
-            cipos_lower_bound = "."
-        else:
-            cipos_lower_bound = int(start_range_lower_bound) - pos
-        # if the upper bound is unknown for the imprecise variant, pass this to CIPOS(i.e. CIPOS=0,.)
-        if start_range_upper_bound == ".":
-            cipos_upper_bound = "."
-        else:
-            cipos_upper_bound = int(start_range_upper_bound) - pos
-
+        cipos_lower_bound = self.convert_to_ci_bound(variant_range_cordinates.pos, variant_range_cordinates.start_range_lower_bound)
+        cipos_upper_bound = self.convert_to_ci_bound(variant_range_cordinates.pos, variant_range_cordinates.start_range_upper_bound)
         # Converting End_range co-ordinates
-        # if the lower bound is unknown for the imprecise variant, pass this to CIPOS (i.e. CIPOS=.,0)
-        if end_range_lower_bound == ".":
-            ciend_lower_bound = "."
-        else:
-            ciend_lower_bound = int(end_range_lower_bound) - end
-        # if the upper bound is unknown for the imprecise variant, pass this to CIPOS(i.e. CIPOS=0,.)
-        if end_range_upper_bound == ".":
-            ciend_upper_bound = "."
-        else:
-            ciend_upper_bound = int(end_range_upper_bound) - end
+        ciend_lower_bound = self.convert_to_ci_bound(variant_range_cordinates.end, variant_range_cordinates.end_range_lower_bound)
+        ciend_upper_bound = self.convert_to_ci_bound(variant_range_cordinates.end, variant_range_cordinates.end_range_upper_bound)
         return ciend_lower_bound, ciend_upper_bound, cipos_lower_bound, cipos_upper_bound
+
+    def convert_to_ci_bound(self, start_or_end_position, original_coordinate_bound):
+        """ Logic for converting start or end range co-ordinates to CIPOS or CIEND
+        :param: start or end positon: (pos or end)
+        :param: original_coordinate bound: start/end range lower or upper bound
+        :param: cipos/ciend upper or lower bound
+        """
+        # if the original bound is unknown for the imprecise variant, pass this to CIPOS or CIEND(i.e. CIPOS=.,0)
+        if original_coordinate_bound == ".":
+            ci_coordinate_bound = "."
+        # if the original bound is precise variant, set to CIPOS or CIEND to None
+        elif original_coordinate_bound is None:
+            ci_coordinate_bound = None
+        # if known imprecise coordinate, calculate the CIPOS/CIEND
+        else:
+            ci_coordinate_bound = int(original_coordinate_bound) - start_or_end_position
+        return ci_coordinate_bound
+
+    def generate_symbolic_allele(self, vcf_value_from_gvf_attribute, pos, end, length, ref, so_type):
+        """ Generates the symbolic allele and stores the corresponding metainformation lines.
+        Also determines if variant is precise or imprecise.
+        :return: symbolic_allele, self.info, lines_standard_ALT, lines_standard_INFO
+        """
+        # Get symbolic allele
+        symbolic_allele_id = self.reference_lookup.symbolic_allele_dictionary[so_type][1]
+        symbolic_allele = f'<{symbolic_allele_id}>'
+
+        lines_standard_alt = self.field_lines_dictionary["ALT"]
+        lines_standard_info = self.field_lines_dictionary["INFO"]
+        all_possible_alt_lines = self.all_possible_lines_dictionary["ALT"]
+        all_possible_info_lines = self.all_possible_lines_dictionary["INFO"]
+
+        if symbolic_allele_id in all_possible_alt_lines:
+            lines_standard_alt.append(all_possible_alt_lines[symbolic_allele_id])
+
+        # Creating start/end co-ordinate ranges
+        (start_range_lower_bound, start_range_upper_bound,
+         end_range_lower_bound, end_range_upper_bound) = self.create_coordinate_range(vcf_value_from_gvf_attribute)
+        variant_range_coordinates = VariantRange(pos=pos,
+                                                 start_range_lower_bound=start_range_lower_bound,
+                                                 start_range_upper_bound=start_range_upper_bound,
+                                                 end=end,
+                                                 end_range_lower_bound=end_range_lower_bound,
+                                                 end_range_upper_bound=end_range_upper_bound)
+
+        # Get the dictionary of INFO keys and their values
+        info_dict, is_imprecise = self.generate_info_field_symbolic_allele(
+            variant_range_coordinates, length, ref, symbolic_allele)
+
+        # Set SVCLAIM depending on the symbolic allele
+        info_svclaim_key = "SVCLAIM"
+        if "DEL" in symbolic_allele or "DUP" in symbolic_allele:
+            # TODO: IMPORTANT: this should be set to the missing place holder '.' but await clarification from the spec
+            info_svclaim_value = "D"
+            info_dict.update({info_svclaim_key: info_svclaim_value})
+            lines_standard_info.append(all_possible_info_lines["SVCLAIM"])
+
+        # for all variants (precise and imprecise) store INFO lines for the header
+        lines_standard_info.append(all_possible_info_lines["END"])
+        lines_standard_info.append(all_possible_info_lines["SVLEN"])
+
+        # for imprecise variants only
+        if is_imprecise:
+            lines_standard_info.append(all_possible_info_lines["IMPRECISE"])
+            lines_standard_info.append(all_possible_info_lines["CIPOS"])
+            lines_standard_info.append(all_possible_info_lines["CIEND"])
+        return symbolic_allele, info_dict, lines_standard_alt, lines_standard_info
+
+    #TODO: awaiting clarification from the specification to keep or remove this function
+    def has_svclaim_abundance_evidence(self, vcf_value_from_gvf_attribute, alt, info_dict):
+        """ This functions determines if the GVF attributes contain evidence that the SVCLAIM should be set to Abundance (D)
+        :params: vcf_value_from_gvf_attribute: dictionary of GVF attributes
+        :params: alt: alternative allele (SVCLAIM mandatory for DEL/DUP)
+        :params: info_dict: dictionary of INFO keys and their values
+        return: boolean/none
+        """
+        abundance_variant_method_keywords = ["Array_CGH", "Read_depth", "Depth_of_coverage", "SNP_Microarray", "Oligo_Microarray"]
+        abundance_variant_method_keywords_lowercase = {vm.casefold() for vm in abundance_variant_method_keywords}
+
+        abundance_variant_region_description_keywords = ["Inferred", "Copy_number_variation", "CNV", "Gain", "Loss", "Dosage_sensitive", "Relative_copy_number"]
+        abundance_variant_region_description_keywords_lowercase = {vrd.casefold() for vrd in abundance_variant_region_description_keywords}
+
+        abundance_variant_call_description_keywords = ["Inferred", "Copy_number_variation", "CNV", "Gain", "Loss", "Dosage_sensitive", "Relative_copy_number"]
+        abundance_variant_call_description_keywords_lowercase = {vcd.casefold() for vcd in abundance_variant_call_description_keywords}
+
+        abundance_variant_seq_keywords = ["."]
+        # Region
+        # SO:0001019 = copy_number_variation
+        abundance_variant_region_so_id_keywords = ["SO:0001019"]
+
+        # Call
+        # SO:0001742 = copy_number_gain
+        # SO:0001743 = copy_number_loss
+        # SO:1000173 = tandem_duplication
+        abundance_variant_call_so_id_keywords =   ["SO:0001742", "SO:0001743", "SO:1000173"]
+        abundance_imprecise_keywords = [True]
+
+        if "DEL" in alt or "DUP" in alt:
+            has_abundance_variant_method = vcf_value_from_gvf_attribute.get("Variant_Method", "").casefold() in abundance_variant_method_keywords_lowercase
+            has_abundance_variant_region_description = any(i in vcf_value_from_gvf_attribute.get("variant_region_description", "").casefold() for i in abundance_variant_region_description_keywords_lowercase)
+            has_abundance_call_description = any(i in vcf_value_from_gvf_attribute.get("variant_call_description", "").casefold() for i in abundance_variant_call_description_keywords_lowercase)
+            has_abundance_variant_seq = vcf_value_from_gvf_attribute.get("Variant_seq") in abundance_variant_seq_keywords
+            has_abundance_variant_region_so_id_keyword = vcf_value_from_gvf_attribute.get("variant_region_so_id") in abundance_variant_region_so_id_keywords
+            has_abundance_variant_call_so_id_keyword = vcf_value_from_gvf_attribute.get("variant_call_so_id") in abundance_variant_call_so_id_keywords
+            has_abundance_imprecise = info_dict.get("IMPRECISE") in abundance_imprecise_keywords
+            if any([has_abundance_variant_method, has_abundance_variant_region_description,has_abundance_call_description, has_abundance_variant_seq, has_abundance_variant_region_so_id_keyword, has_abundance_variant_call_so_id_keyword, has_abundance_imprecise]):
+                return True
+            else:
+                return False
+        return None
 
     def get_alt(self, vcf_value_from_gvf_attribute, chrom, pos, end, length, ref, so_type):
         """ Gets the ALT allele for the VCF file
@@ -369,7 +415,8 @@ class VcfLineBuilder:
         if any(base in vcf_value_from_gvf_attribute["Variant_seq"] for base in ["A", "C", "G", "T", "N"]):
             alt = vcf_value_from_gvf_attribute["Variant_seq"]
         elif vcf_value_from_gvf_attribute["Variant_seq"] == '.':
-            symbolic_allele, info_dict = self.generate_symbolic_allele(vcf_value_from_gvf_attribute, pos, end, length, ref, so_type)
+            symbolic_allele, info_dict, lines_standard_alt, lines_standard_info = self.generate_symbolic_allele(vcf_value_from_gvf_attribute, pos, end, length, ref, so_type)
+
             if symbolic_allele is None:
                 alt = "."
             elif (vcf_value_from_gvf_attribute["Variant_seq"] == "." or vcf_value_from_gvf_attribute["Variant_seq"] == "-") and symbolic_allele is not None:
@@ -385,10 +432,12 @@ class VcfLineBuilder:
                     ref = self.check_ref(ref)
             else:
                 alt = "."
-                print("Cannot identify symbolic allele. Variant type is not supported.")
+                logger.warning(f"Cannot identify symbolic allele: {symbolic_allele}. Variant type is not supported.")
         else:
             alt = "."
-            print("Could not determine the alternative allele.")
+            logger.warning("Could not determine the alternative allele.")
+        #TODO: awaiting clarification to keep or remove this for SVCLAIM
+        #is_abundance = self.has_svclaim_abundance_evidence(vcf_value_from_gvf_attribute, alt, info_dict)
         return pos, ref, alt, info_dict
 
 
@@ -422,17 +471,18 @@ class VcfLine:
         """ Creates and formats the VCF line.
         :return: string_to_return - the VCF line as a string
         """
-        string_to_return = '\t'.join((self.chrom,
-                str(self.pos),
-                self.id,
-                self.ref,
-                self.alt,
-                self.qual,
-                self.filter,
-                self.format_info_string(),
-                ":".join(self.format_keys),
-                self.combine_format_values_by_sample_as_str()
-                ))
+        fields = [self.chrom,
+                  str(self.pos),
+                  self.id,
+                  self.ref,
+                  self.alt,
+                  self.qual,
+                  self.filter,
+                  self.format_info_string()]
+        if self.format_keys != ["."]:
+            fields.append(":".join(self.format_keys))
+            fields.append(self.combine_format_values_by_sample_as_str())
+        string_to_return = '\t'.join(fields)
         return string_to_return
 
     def __eq__(self, other_vcf_line):
@@ -449,6 +499,8 @@ class VcfLine:
                                  for format_value in self.vcf_values_for_format.values()
                                  for format_key in format_value.keys()
                                  ])
+        if len(set_of_format_key) == 0:
+            set_of_format_key = set('.')
         return self._order_format_keys(set_of_format_key)  # a list of ordered format keys
 
     def merge_and_add(self, previous_element, current_element, delimiter):
@@ -586,10 +638,12 @@ class VcfLine:
         """
         # Merging ID, ALT and FILTER first
         merged_id = self.merge_and_add(self.id, other_vcf_line.id, ";")
+        sorted_merged_id_set = sorted(set(map(int, merged_id.split(";"))))
+        sorted_merged_id = ";".join(map(str, sorted_merged_id_set))
         merged_alt = self.merge_and_add(self.alt, other_vcf_line.alt, ",")
         merged_filter = self.merge_and_add(self.filter, other_vcf_line.filter, ";")
 
-        self.id = other_vcf_line.id = merged_id
+        self.id = other_vcf_line.id = sorted_merged_id
         self.alt = other_vcf_line.alt = merged_alt
         self.filter = other_vcf_line.filter = merged_filter
         # Merging INFO using info_dict
