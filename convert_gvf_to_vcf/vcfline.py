@@ -1,31 +1,24 @@
 """
 The purpose of this file is to populate for each field of a VCF line (and perform any modifications/calculations to achieve this)
 """
-
-from Bio import SeqIO
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from convert_gvf_to_vcf.assistingconverter import convert_gvf_attributes_to_vcf_values
-from convert_gvf_to_vcf.logger import logger
 from dataclasses import dataclass
 from typing import Optional,Union
 
+logger = log_cfg.get_logger(__name__)
 
-def extract_reference_allele(fasta_file, chromosome_name, position, end):
+def extract_reference_allele(seqIo_fasta, chromosome_name, position, end):
     """ Extracts the reference allele from the assembly.
     :param fasta_file: FASTA file of the assembly
     :param chromosome_name: name of the sequence
-    :param position: position
-    :param end: end position
-    :return: reference_allele: base found at this chromosome_name at this position within this fasta_file
+    :param position: position in 1 based coordinates
+    :param end: end position included
+    :return: reference_allele: bases found at this chromosome_name between position and end in this fasta_file
     """
-    # using .index for memory efficiency:  https://biopython.org/docs/1.76/api/Bio.SeqIO.html#input-multiple-records
-    records_dictionary = SeqIO.index(fasta_file, "fasta")
     zero_indexed_position = position - 1  # minus one because zero indexed
-    zero_indexed_end = end - 1
-    reference_allele = ""
-    for position in range(zero_indexed_position, zero_indexed_end):
-        reference_allele = reference_allele + records_dictionary[chromosome_name].seq[position]
-    records_dictionary.close()
-    return reference_allele
+    reference_allele = seqIo_fasta[chromosome_name].seq[zero_indexed_position:end]
+    return str(reference_allele)
 
 @dataclass
 class VariantRange:
@@ -50,8 +43,8 @@ class VcfLineBuilder:
     """
     This class is responsible for creating VcfLine objects that contain VCF datalines.
     """
-    def __init__(self, field_lines_dictionary, all_possible_lines_dictionary, reference_lookup, ordered_list_of_samples):
-        self.field_lines_dictionary = field_lines_dictionary
+    def __init__(self, all_possible_lines_dictionary, reference_lookup, ordered_list_of_samples):
+        self.field_lines_dictionary = {"ALT": [],  "INFO": [], "FILTER": [], "FORMAT": []}
         self.all_possible_lines_dictionary = all_possible_lines_dictionary
         self.reference_lookup = reference_lookup
         self.ordered_list_of_samples = ordered_list_of_samples
@@ -116,11 +109,10 @@ class VcfLineBuilder:
         """
         if placed_before:
             pos = pos - 1
-            padded_base = extract_reference_allele(self.reference_lookup.assembly_file, chrom, pos, pos + 1)
+            padded_base = extract_reference_allele(self.reference_lookup.assembly_fasta_indexed, chrom, pos, pos)
             ref = padded_base + ref
         else:
-            end = end + 1
-            padded_base = extract_reference_allele(self.reference_lookup.assembly_file, chrom, end-1, end)
+            padded_base = extract_reference_allele(self.reference_lookup.assembly_fasta_indexed, chrom, end, end)
             ref = ref + padded_base
         return padded_base, pos, ref, alt
 
@@ -144,7 +136,7 @@ class VcfLineBuilder:
         :param ref_allele_to_be_checked: reference allele to check
         :return: checked_reference_allele: reference allele that meets the requirements of the VCF specification"""
         if isinstance(ref_allele_to_be_checked, str):
-            if not all(bases in ref_allele_to_be_checked for bases in ["A", "C", "G", "T", "N"]):
+            if not all(base in "ACGTN" for base in ref_allele_to_be_checked):
                 checked_reference_allele = self.convert_iupac_ambiguity_code(ref_allele_to_be_checked)
             else:
                 checked_reference_allele = ref_allele_to_be_checked
@@ -158,18 +150,11 @@ class VcfLineBuilder:
         """ Gets the reference allele from attributes column or if not found, returns "."
         :return: reference allele
         """
-        assembly_file = self.reference_lookup.assembly_file
         if "Reference_seq" in vcf_value_from_gvf_attribute.keys():
             reference_allele = vcf_value_from_gvf_attribute["Reference_seq"]
         else:
-            if assembly_file:
-                reference_allele = extract_reference_allele(assembly_file, chrom, pos, end)
-            else:
-                logger.warning("No reference provided. Placeholder inserted for Reference allele.")
-                reference_allele = "."
-        if reference_allele != ".":
-            reference_allele = self.check_ref(reference_allele)
-        return reference_allele
+            reference_allele = extract_reference_allele(self.reference_lookup.assembly_fasta_indexed, chrom, pos, end)
+        return self.check_ref(reference_allele)
 
     def create_coordinate_range(self, vcf_value_from_gvf_attribute):
         """ Create the start and end range using the dictionary of GVF attributes and the pos and end
@@ -258,9 +243,9 @@ class VcfLineBuilder:
             # end, end_range_lower_bound, end_range_upper_bound, pos, start_range_lower_bound, start_range_upper_bound)
 
         # form the CIPOS value
-        info_cipos_value =  f"{str(cipos_lower_bound)},{str(cipos_upper_bound)}" if all(cipos_bound is not None for cipos_bound in (cipos_lower_bound, cipos_upper_bound)) else None
+        info_cipos_value = f"{str(cipos_lower_bound)},{str(cipos_upper_bound)}" if all(cipos_bound is not None for cipos_bound in (cipos_lower_bound, cipos_upper_bound)) else None
         # form the CIEND value
-        info_ciend_value = f"{str(ciend_lower_bound)},{str(ciend_upper_bound)}" if all(ciend_bound is not None for ciend_bound in (cipos_lower_bound, cipos_upper_bound)) else None
+        info_ciend_value = f"{str(ciend_lower_bound)},{str(ciend_upper_bound)}" if all(ciend_bound is not None for ciend_bound in (ciend_lower_bound, ciend_upper_bound)) else None
 
         # Determine the END value based on the symbolic allele
         if symbolic_allele == "<INS>":
@@ -270,6 +255,7 @@ class VcfLineBuilder:
         elif symbolic_allele == "<*>":
             info_end_value = str(variant_range_coordinates.pos + len(ref))
         else:
+            info_end_value = None
             logger.warning(f"Cannot identify symbolic allele: {symbolic_allele}")
         return info_ciend_value, info_cipos_value, info_end_value, info_imprecise_value, is_imprecise
 
@@ -638,8 +624,8 @@ class VcfLine:
         """
         # Merging ID, ALT and FILTER first
         merged_id = self.merge_and_add(self.id, other_vcf_line.id, ";")
-        sorted_merged_id_set = sorted(set(map(int, merged_id.split(";"))))
-        sorted_merged_id = ";".join(map(str, sorted_merged_id_set))
+        sorted_merged_id_set = sorted(set(map(str, merged_id.split(";"))))
+        sorted_merged_id = ";".join(sorted_merged_id_set)
         merged_alt = self.merge_and_add(self.alt, other_vcf_line.alt, ",")
         merged_filter = self.merge_and_add(self.filter, other_vcf_line.filter, ";")
 

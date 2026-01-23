@@ -1,3 +1,4 @@
+
 class GvfFeatureline:
     """This is to store each field of the GVF line"""
     def __init__(self, seqid, source, so_type, start, end, score, strand, phase, attributes):

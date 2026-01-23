@@ -3,13 +3,12 @@ import unittest
 
 
 from convert_gvf_to_vcf.lookup import Lookup
-from convert_gvf_to_vcf.convertGVFtoVCF import generate_vcf_header_unstructured_line, read_in_gvf_file, \
-    convert_gvf_features_to_vcf_objects, convert_gvf_pragmas_for_vcf_header, generate_vcf_header_line, \
-    compare_vcf_objects, \
-    determine_merge_or_keep_vcf_objects, merge_vcf_objects, parse_pragma, get_pragma_name_and_value, get_pragma_tokens, \
-    keep_vcf_objects, get_sample_name_from_pragma, get_unique_sample_names, convert_gvf_pragmas_to_vcf_header, \
-    convert_gvf_pragma_comment_to_vcf_header, generate_vcf_header_structured_lines, get_chrom_pos_of_vcf_object, \
-    has_duplicates, get_list_of_merged_vcf_objects, filter_duplicates_by_merging
+from convert_gvf_to_vcf.convertGVFtoVCF import generate_vcf_header_unstructured_line, \
+    convert_gvf_pragmas_for_vcf_header, generate_vcf_header_line, parse_pragma, get_pragma_name_and_value, \
+    get_pragma_tokens, \
+    get_sample_name_from_pragma, get_unique_sample_names, convert_gvf_pragmas_to_vcf_header, \
+    convert_gvf_pragma_comment_to_vcf_header, generate_vcf_header_structured_lines, convert
+from convert_gvf_to_vcf.utils import read_in_gvf_header
 
 
 class TestConvertGVFtoVCF(unittest.TestCase):
@@ -153,133 +152,19 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         with self.assertRaises(AssertionError):
             self.assertEqual(unexpected_pragma_tokens, pragma_tokens)
 
-    # This test is for main conversion logic
-    def test_convert_gvf_features_to_vcf_objects(self):
-        gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        # standard structured meta-information lines for this VCF file
-        (
-            header_lines_for_this_vcf,
-            list_of_vcf_objects
-        ) = convert_gvf_features_to_vcf_objects(gvf_lines_obj_list, self.reference_lookup, self.ordered_list_of_samples)
-        assert len(gvf_pragmas) > 1
-        assert len(gvf_pragma_comments) > 1
-        assert len(gvf_lines_obj_list) > 1
-        assert len(header_lines_for_this_vcf) > 1
-        assert len(list_of_vcf_objects) > 1
+    def test_convert(self):
+        convert(self.input_file , self.output_file, self.assembly)
+        header_lines = []
+        data_lines = []
+        with open(self.output_file) as open_file:
+            for line in open_file:
+                if line.startswith('#'):
+                    header_lines.append(line.strip())
+                else:
+                    data_lines.append(line.strip())
+        assert header_lines[0] == '##fileformat=VCFv4.4'
+        assert header_lines[-1] == '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tJenMale6\tWilds2-3\tZon9\tJenMale7'
+        assert data_lines[0].split('\t')[4] == '<DEL>'
 
-    # The test below relate to the VCF objects
-    def test_compare_vcf_objects(self):
-        gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        header_standard_lines_dictionary, list_of_vcf_objects = convert_gvf_features_to_vcf_objects(
-            gvf_lines_obj_list,  self.reference_lookup, self.ordered_list_of_samples
-        )
-        # compare object, if equal, True, if not equal, False # (next function will make true = current and merge; false= previous)
-        expected_flags_for_list_of_vcf_objects = [False, # line 1 vs 2
-                                                  False, # line 2 vs 3
-                                                  False, # line 3 vs 4
-                                                  True,  # line 4 vs 5
-                                                  False, # line 5 vs 6
-                                                  True   # line 6 vs 7
-                                                  ]
-        actual_flags_for_list_of_vcf_objects = compare_vcf_objects(list_of_vcf_objects)
-        assert actual_flags_for_list_of_vcf_objects == expected_flags_for_list_of_vcf_objects
-
-    def test_merge_vcf_objects(self):
-        gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        list_of_samples = ['JenMale6', 'Wilds2-3', 'Zon9', 'JenMale7']
-        (header_standard_lines_dictionary,
-         list_of_vcf_objects) = convert_gvf_features_to_vcf_objects(
-                gvf_lines_obj_list,
-            self.reference_lookup,
-            list_of_samples)
-        # use lines 4 and 5 of gvf file
-        previous = list_of_vcf_objects[3] # line 4
-        current = list_of_vcf_objects[4] #line 5
-        merged_object = merge_vcf_objects(previous, current, list_of_samples)
-        assert merged_object.chrom == "chromosome1"
-        assert merged_object.pos == 127
-        assert merged_object.id == "13;14"
-        assert merged_object.ref == "GTACG"
-        assert merged_object.alt == "<DUP>"
-        assert merged_object.qual == "."
-        assert merged_object.filter == "."
-        assert len(merged_object.info_dict) == 15
-        assert merged_object.info_dict["ALIAS"] == 'CNV6230,CNV5711'
-        assert merged_object.info_dict["NAME"] == 'nssv1389474,nssv1388955'
-
-    def test_keep_vcf_objects(self):
-        gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        header_standard_lines_dictionary, list_of_vcf_objects = convert_gvf_features_to_vcf_objects(
-                gvf_lines_obj_list, self.reference_lookup, self.ordered_list_of_samples)
-        list_of_samples = ['JenMale6', 'Wilds2-3', 'Zon9', 'JenMale7']
-        previous_object = list_of_vcf_objects[1]
-        kept_object = keep_vcf_objects(previous_object, list_of_samples)
-        assert kept_object == previous_object
-
-    def test_determine_merge_or_keep_vcf_objects(self):
-        gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        header_standard_lines_dictionary, list_of_vcf_objects = convert_gvf_features_to_vcf_objects(
-            gvf_lines_obj_list,  self.reference_lookup, self.ordered_list_of_samples
-        )
-        list_of_samples = ['JenMale6', 'Wilds2-3', 'Zon9', 'JenMale7']
-        flags_for_list_of_vcf_objects = compare_vcf_objects(list_of_vcf_objects)
-        merged_or_kept_objects = determine_merge_or_keep_vcf_objects(list_of_vcf_objects, flags_for_list_of_vcf_objects, list_of_samples)
-        assert len(merged_or_kept_objects) == 5 # 3 kept + 2 merged
-        # check variant 13 and 14 have been merged
-        assert merged_or_kept_objects[3].id == "13;14"
-        assert merged_or_kept_objects[3].info_dict["NAME"] == "nssv1389474,nssv1388955"
-
-    def test_get_chrom_pos_of_vcf_object(self):
-        gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        header_standard_lines_dictionary, list_of_vcf_objects = convert_gvf_features_to_vcf_objects(
-            gvf_lines_obj_list,  self.reference_lookup, self.ordered_list_of_samples
-        )
-        obj = list_of_vcf_objects[0]
-        chrom_pos = get_chrom_pos_of_vcf_object(obj)
-        assert chrom_pos == ('chromosome1', 1)
-
-    def test_has_duplicates(self):
-        gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        header_standard_lines_dictionary, list_of_vcf_objects = convert_gvf_features_to_vcf_objects(
-            gvf_lines_obj_list,  self.reference_lookup, self.ordered_list_of_samples
-        )
-        duplicate_flag, list_of_dup_chrom_pos = has_duplicates(list_of_vcf_objects)
-        assert duplicate_flag is True
-        assert list_of_dup_chrom_pos == [('chromosome1', 127), ('chromosome1', 127), ('chromosome1', 127)]
-
-    def test_get_list_of_merged_vcf_objects(self):
-        gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        header_standard_lines_dictionary, list_of_vcf_objects = convert_gvf_features_to_vcf_objects(
-            gvf_lines_obj_list,  self.reference_lookup, self.ordered_list_of_samples
-        )
-        merge_or_kept_objects = get_list_of_merged_vcf_objects(list_of_vcf_objects, self.ordered_list_of_samples)
-        assert len(merge_or_kept_objects) == 5
-        assert str(merge_or_kept_objects[0]) == "chromosome1	1	1	AC	<DEL>	.	.	ID=1;NAME=nssv1412199;ALIAS=CNV28955;VARCALLSOID=SO:0001743;PARENT=nsv811094;SVCID=CNV28955;SAMPLENAME=Wilds2-3;REMAP=.98857;VARSEQ=.;END=2;IMPRECISE;SVLEN=1;SVCLAIM=D"
-
-    def test_filter_duplicates_by_merging(self):
-        gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        header_standard_lines_dictionary, list_of_vcf_objects = convert_gvf_features_to_vcf_objects(
-            gvf_lines_obj_list,  self.reference_lookup, self.ordered_list_of_samples
-        )
-        # deliberately adding duplicates here
-        list_of_vcf_objects.append(list_of_vcf_objects[0])
-        list_of_vcf_objects.append(list_of_vcf_objects[1])
-        list_of_vcf_objects.append(list_of_vcf_objects[-1])
-
-        merge_or_kept_objects = get_list_of_merged_vcf_objects(list_of_vcf_objects, self.ordered_list_of_samples)
-
-        list_of_vcf_objects_to_be_filtered = merge_or_kept_objects
-        duplicate_flag, list_of_dup_chrom_pos = has_duplicates(list_of_vcf_objects)
-        filtered_merge_or_kept_vcf_objects = filter_duplicates_by_merging(list_of_dup_chrom_pos,duplicate_flag, list_of_vcf_objects, list_of_vcf_objects_to_be_filtered, self.ordered_list_of_samples)
-        assert len(filtered_merge_or_kept_vcf_objects) <= len(merge_or_kept_objects)
-        assert filtered_merge_or_kept_vcf_objects[-1].chrom == "chromosome1"
-        assert filtered_merge_or_kept_vcf_objects[-1].pos == 127
-        assert filtered_merge_or_kept_vcf_objects[-1].id == "14"
-        assert filtered_merge_or_kept_vcf_objects[-1].ref == "GT"
-        assert filtered_merge_or_kept_vcf_objects[-1].alt == "<DUP>"
-        assert filtered_merge_or_kept_vcf_objects[-1].qual == "."
-        assert filtered_merge_or_kept_vcf_objects[-1].filter == "."
-        assert filtered_merge_or_kept_vcf_objects[-1].info_dict == {'ALIAS': 'CNV5711', 'SVCID': 'CNV5711', 'NAME': 'nssv1388955', 'REMAP': '.85344', 'DBXREF': 'mydata', 'SVLEN': '1', 'VARCALLSOID': 'SO:0001742', 'IMPRECISE': 'IMPRECISE', 'PARENT': 'nsv811095', 'SVCLAIM': 'D', 'CIPOS': '.,0', 'CIEND': '0,.', 'SAMPLENAME': 'JenMale6,JenMale7', 'VARSEQ': '.', 'AD': '3', 'END': '129', 'AC': '3'}
-        assert filtered_merge_or_kept_vcf_objects[-1].vcf_values_for_format == {'JenMale7': {'AD': '3', 'GT': '0:1'}}
 if __name__ == '__main__':
     unittest.main()

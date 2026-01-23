@@ -1,10 +1,12 @@
 import argparse
 import os
-
-from convert_gvf_to_vcf.utils import read_in_gvf_file
-from convert_gvf_to_vcf.vcfline import VcfLineBuilder
-from convert_gvf_to_vcf.logger import set_up_logging, logger
+from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 from convert_gvf_to_vcf.lookup import Lookup
+from convert_gvf_to_vcf.utils import read_in_gvf_header, read_in_gvf_data
+from convert_gvf_to_vcf.vcfline import VcfLineBuilder
+
+logger = log_cfg.get_logger(__name__)
+
 # setting up paths to useful directories
 convert_gvf_to_vcf_folder = os.path.dirname(__file__)
 etc_folder = os.path.join(convert_gvf_to_vcf_folder, 'etc')
@@ -128,7 +130,7 @@ def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
         # populating sample headers
         sample_name = get_sample_name_from_pragma(pragma_name, pragma_value)
         if sample_name is not None:
-            sample_names_from_pragma_comments.append(get_sample_name_from_pragma(pragma_name, pragma_value))
+            sample_names_from_pragma_comments.append(sample_name)
     return list_of_converted_pragma_comments, sample_names_from_pragma_comments
 
 
@@ -152,7 +154,7 @@ def convert_gvf_pragmas_for_vcf_header(gvf_pragmas,
     list_of_converted_pragmas = convert_gvf_pragmas_to_vcf_header(gvf_pragmas, list_of_gvf_pragmas, reference_lookup.pragma_to_vcf_map)
     converted_pragmas.extend(list_of_converted_pragmas)
     # Go through gvf pragma comments
-    list_of_gvf_pragma_comments = ["#sample", "#Study_accession", "#Study_type", "#Display_name", "#Publication"
+    list_of_gvf_pragma_comments = ["#sample", "#Study_accession", "#Study_type", "#Display_name", "#Publication",
                                     "#Study", "#Assembly_name", "#subject"]
     list_of_converted_pragma_comments, sample_names = convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments, list_of_gvf_pragma_comments, reference_lookup.pragma_to_vcf_map)
     converted_pragmas.extend(list_of_converted_pragma_comments)
@@ -233,200 +235,38 @@ def get_pragma_tokens(pragma_value, first_delimiter, second_delimiter):
         pragma_tokens.append(element.split(second_delimiter))
     return pragma_tokens
 
-# This is the main conversion logic
-def convert_gvf_features_to_vcf_objects(gvf_lines_obj_list, reference_lookup, ordered_list_of_samples):
-    """ Creates VCF objects from GVF feature lines and stores the VCF objects.
-    :param gvf_lines_obj_list: list of GVF feature line objects
-    :param reference_lookup: an object that stores important dictionaries to be used for reference lookups.
-    :return: standard_header_lines,  list_of_vcf_objects: header lines for this VCF, datalines for this VCF and a list of VCF objects
-    """
-    list_of_vcf_objects = []
-    # Create data structure to store the header lines for this VCF file (standard meta-information lines)
-    standard_header_lines ={
-        "ALT": [],
-        "INFO": [],
-        "FILTER": [],
-        "FORMAT": [],
-    }
-    #TODO: place the all_header_lines_per_type_dict into the reference_lookup.
 
-    # Create data structure to store all possible outcomes for header lines (for fields ALT, INFO, FILTER, FORMAT)
-    all_header_lines_per_type_dict = {
-        htype: generate_vcf_header_structured_lines(htype, reference_lookup.mapping_attribute_dict) for htype in ["ALT", "INFO", "FILTER", "FORMAT"]
-    }
-    vcf_builder = VcfLineBuilder(standard_header_lines, all_header_lines_per_type_dict, reference_lookup, ordered_list_of_samples)
-    # Create a vcf object for every feature line in the GVF (1:1)
-    for gvf_featureline in gvf_lines_obj_list:
-        vcf_object = vcf_builder.build_vcf_line(gvf_featureline)
-        standard_header_lines = vcf_builder.build_vcf_header() # Forms headerlines from vcf line obj
-        # Store VCF object in the list
-        list_of_vcf_objects.append(vcf_object)
-    # Returns the header of the VCF file, and the objects.
-    return standard_header_lines, list_of_vcf_objects
+def write_header(vcf_output, pragmas_for_vcf, header_lines_per_type, is_missing_format_value, samples):
+    logger.info(f"Total number of samples in this VCF: {len(samples)}")
+    vcf_header_file = vcf_output + '_header'
+    with open(vcf_header_file, "w") as vcf_header_output:
 
-# The functions below relate to the VCF objects
-def collect_missing_format_flags(list_of_vcf_objects):
-    """ Returns a list of booleans for each VCF object (True if format is missing, False if format keys present)
-    :params: list_of_vcf_objects: list of vcf objects
-    :return: missing_format_flags: list of booleans (True if format is missing, False if format keys present)
-    """
-    missing_format_flags = []
-    for index in range(1, len(list_of_vcf_objects)):
-        if list_of_vcf_objects[index].format_keys == ['.']:
-            format_flag = True
-            missing_format_flags.append(format_flag)
-        else:
-            format_flag = False
-            missing_format_flags.append(format_flag)
-    return missing_format_flags
+        # Part 1 of VCF file: Write the VCF header. This will include preserved data from the GVF file.
+        for pragma in pragmas_for_vcf:
+            vcf_header_output.write(f"{pragma}\n")
+        for header_type in header_lines_per_type.values():
+            for header_line in header_type:
+                vcf_header_output.write(f"{header_line}\n")
 
+        # Part 2 of VCF file: Write the VCF header line.
+        # Write the header.
+        header_fields = generate_vcf_header_line(is_missing_format=is_missing_format_value, samples=samples)
+        vcf_header_output.write(f"{header_fields}\n")
+    return vcf_header_file
 
-def compare_vcf_objects(list_of_vcf_objects):
-    """ Compares VCF objects in the list with the VCF object before it. Returns boolean values.
-    :params: list_of_vcf_objects: list of vcf objects
-    :return: comparison_results: list of booleans. For future reference, if True, this will determine merging lines; if False, this will determine use of the previous line.
-    """
-    comparison_results = []
-    # For each vcf line object, compare with the previous vcf line object in the list
-    for index in range(1, len(list_of_vcf_objects)):
-        current_vcf_object = list_of_vcf_objects[index]
-        previous_vcf_object = list_of_vcf_objects[index - 1]
-        # Determines the VCF line objects as equal based on the CHROM, POS and REF being the same (__eq__ in Vcfline)
-        if current_vcf_object == previous_vcf_object:
-            comparison_results.append(True) # This will use require merging.
-        else:
-            comparison_results.append(False) # No merging required. Use previous object.
-    return comparison_results
-
-def merge_vcf_objects(previous, current, list_of_sample_names):
-    """ Merge VCF objects.
-    :params: previous: previous VCF line object
-    :params: current: current VCF line object
-    :params: list_of_sample_names: sample names
-    :return: merged_object
-    """
-    merged_object = previous.merge(current, list_of_sample_names)
-    return merged_object
-
-def keep_vcf_objects(previous, list_of_sample_names):
-    """ Keep VCF objects.
-    :params: previous VCF line object
-    :return: kept_object
-    """
-    kept_object = previous.keep(list_of_sample_names)
-    return kept_object
-
-def determine_merge_or_keep_vcf_objects(list_of_vcf_objects, comparison_results, list_of_sample_names):
-    """ Runs through the list of VCF objects and its corresponding comparison result.
-    If True, merge parts of the vcf object together. If False, use the previous object
-    :params: list_of_vcf_objects: list of vcf line objects
-    :return: merge_or_kept_objects: list of vcf line objects that have either been merged or kept as is.
-    """
-    merge_or_kept_objects = []
-    # start at 1 to ensure the first element has a previous object
-    for index, compare_result in enumerate(comparison_results, start=1):
-        # Merge if the previous and current VCF object are the same (compare_result is True)
-        if compare_result:
-            merged_object = merge_vcf_objects(list_of_vcf_objects[index - 1], list_of_vcf_objects[index], list_of_sample_names)
-        # Keep previous if previous and current VCF object are different (compare_result is False)
-        else:
-                # keep the previous VCF line object
-            kept_object = keep_vcf_objects(list_of_vcf_objects[index - 1], list_of_sample_names)
-            merge_or_kept_objects.append(kept_object)
-    merge_or_kept_objects.append(list_of_vcf_objects[-1])
-    return merge_or_kept_objects
-
-def get_chrom_pos_of_vcf_object(obj):
-    """
-    Returns chromosome and position of an object. Used to help sort VCF object by chromosome name and by numeric position.
-    :params: obj : vcf line object
-    :return: obj.chrom, obj.pos
-    """
-    return (obj.chrom, int(obj.pos))
-
-def has_duplicates(list_of_objects):
-    """ Checks chrom and pos of vcf line objects to see if there are duplicates. If list of vcf object has duplicates, merge again.
-    :params: list_of_objects
-    :return: duplicate_flag - boolean value (True = has duplicates so merge again, False= no duplicates)
-    """
-    duplicate_flag = False
-    list_of_duplicate_chrom_pos = []
-    seen_chrom_pos = set()
-    for obj in list_of_objects:
-        chrom_pos = (obj.chrom, int(obj.pos))
-        if chrom_pos in seen_chrom_pos:
-            # returns true to allow to merge again
-            duplicate_flag = True
-            list_of_duplicate_chrom_pos.append(chrom_pos)
-        else:
-            seen_chrom_pos.add(chrom_pos)
-    return duplicate_flag, list_of_duplicate_chrom_pos
-
-
-def get_list_of_merged_vcf_objects(list_of_vcf_objects, samples):
-    """ Compares VCF objects, merges VCF objects, sorts VCF objects. This gives a list of sorted merged vcf objects.
-    :params: list_of_vcf_objects
-    :params: samples
-    :returns: merge_or_kept_vcf_objects
-    """
-    comparison_flags = compare_vcf_objects(list_of_vcf_objects)  # Identifies which VCF objects to merge
-    merge_or_kept_vcf_objects = determine_merge_or_keep_vcf_objects(list_of_vcf_objects, comparison_flags, samples)
-    merge_or_kept_vcf_objects.sort(key=get_chrom_pos_of_vcf_object)  # sorting by chromosome and position
-    return merge_or_kept_vcf_objects
-
-def filter_duplicates_by_merging(chrom_pos_list, has_dups, list_of_vcf_objects,
-                                 list_of_vcf_objects_to_be_filtered, samples):
-    """
-    :params: chrom_pos_list: list of tuples - this represents duplicate positions
-    :params: has_dups: boolean - True if it contains duplicates
-    :params: list_of_vcf_objects: list of VCF objects (GVF converted to VCF; with no merging/remove dups)
-    :params: list_of_vcf_objects_to_be_filtered: list of VCF objects from a previous merge
-    :params: samples: names
-    :returns: filtered_merge_or_kept_vcf_objects - list of vcf objects with duplicates from this iteration removed
-    """
-    if has_dups:
-        for chrom_pos in chrom_pos_list:
-            chrom_to_search = chrom_pos[0]
-            pos_to_search = chrom_pos[1]
-            vcf_objects_to_merge = []
-            for vcf_object in list_of_vcf_objects:
-                if vcf_object.chrom == chrom_to_search and vcf_object.pos == pos_to_search:
-                    vcf_objects_to_merge.append(vcf_object)
-
-    merge_duplicates = get_list_of_merged_vcf_objects(vcf_objects_to_merge, samples)
-    filtered_merge_or_kept_vcf_objects = [x for x in list_of_vcf_objects_to_be_filtered if x not in vcf_objects_to_merge]
-    filtered_merge_or_kept_vcf_objects.extend(merge_duplicates)
-    filtered_merge_or_kept_vcf_objects.sort(key=get_chrom_pos_of_vcf_object)
-    return filtered_merge_or_kept_vcf_objects
-
-def main():
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("gvf_input", help="GVF input file.")
-    parser.add_argument("vcf_output", help="VCF output file.")
-    parser.add_argument("-a", "--assembly", help="FASTA assembly file")
-    parser.add_argument("--log", help="Path to log file")
-    args = parser.parse_args()
-
-    # Set up logging functionality
-    if args.log:
-        log_path = set_up_logging(args.log)
-    else:
-        log_path = set_up_logging()
-
+def convert(gvf_input, vcf_output, assembly):
     # Log the inputs and outputs.
     logger.info("Running the GVF to VCF converter")
-    logger.info(f"The provided input file is: {args.gvf_input}")
-    logger.info(f"The provided output file is: {args.vcf_output}")
-    if args.assembly:
-        logger.info(f"The provided assembly file is: {args.assembly}")
-    assembly_file = os.path.abspath(args.assembly)
+    logger.info(f"The provided input file is: {gvf_input}")
+    logger.info(f"The provided output file is: {vcf_output}")
+    if assembly:
+        logger.info(f"The provided assembly file is: {assembly}")
+    assembly_file = os.path.abspath(assembly)
     assert os.path.isfile(assembly_file), "Assembly file does not exist"
-    logger.info(f"The log file is {log_path}")
 
     # Read input file and separate out its components
-    logger.info(f"Reading in the following GVF input: {args.gvf_input}")
-    gvf_pragmas, gvf_pragma_comments, gvf_lines_obj_list = read_in_gvf_file(args.gvf_input)
+    logger.info(f"Reading in the following GVF header from {gvf_input}")
+    gvf_pragmas, gvf_pragma_comments = read_in_gvf_header(gvf_input)
     # Creating lookup object to store important dictionaries and log what has been stored.
     reference_lookup = Lookup(assembly_file)
     logger.info("Creating the reference lookup object.")
@@ -444,67 +284,75 @@ def main():
         samples
     ) = convert_gvf_pragmas_for_vcf_header(gvf_pragmas, gvf_pragma_comments, reference_lookup)
 
+    # TODO: place the all_header_lines_per_type_dict into the reference_lookup.
+
+    # Create data structure to store all possible outcomes for header lines (for fields ALT, INFO, FILTER, FORMAT)
+    all_header_lines_per_type_dict = {
+        htype: generate_vcf_header_structured_lines(htype, reference_lookup.mapping_attribute_dict) for htype in
+        ["ALT", "INFO", "FILTER", "FORMAT"]
+    }
+    vcf_builder = VcfLineBuilder(all_header_lines_per_type_dict, reference_lookup, samples)
+    is_missing_format_value = True
     # Convert each feature line in the GVF file to a VCF object (stores all the data for a line in the VCF file).
     # NOTE: Main Logic lives here.
-    (header_lines_per_type,list_of_vcf_objects) = convert_gvf_features_to_vcf_objects(gvf_lines_obj_list, reference_lookup, ordered_list_of_samples=samples)
-    logger.info(f"Writing to the following VCF output: {args.vcf_output}")
-    logger.info("Generating the VCF header and the meta-information lines")
-    with open(args.vcf_output, "w") as vcf_output:
-
-        logger.info(f"Total number of samples in this VCF: {len(samples)}")
-
-        # Part 1 of VCF file: Write the VCF header. This will include preserved data from the GVF file.
-        for pragma in pragmas_for_vcf:
-            vcf_output.write(f"{pragma}\n")
-        for header_type in header_lines_per_type.values():
-            for header_line in header_type:
-                vcf_output.write(f"{header_line}\n")
-
-        # Part 2 of VCF file: Write the VCF header line.
-        # Determine if the header is the 8 mandatory fields or 8 mandatory fields + FORMAT + sample names.
-        missing_flags = collect_missing_format_flags(list_of_vcf_objects) # True if format keys are missing, False if present
-        if all(missing_flags):
-            is_missing_format_value = True
-            logger.info("No Format Keys detected. Printing mandatory VCF headers.")
-        else:
-            is_missing_format_value = False
-        # Write the header.
-        header_fields = generate_vcf_header_line(is_missing_format=is_missing_format_value, samples=samples)
-        vcf_output.write(f"{header_fields}\n")
-
-        # Part 3 of VCF file: Write the VCF data lines. This will contain info about the position in the genome,
-        # its variants and genotype information per sample.
-        if (list_of_vcf_objects):
-            logger.info("Generating the VCF datalines")
+    vcf_data_file = vcf_output + '_data_lines'
+    with open(vcf_data_file, "w") as open_data_lines:
+        logger.info("Generating the VCF datalines")
+        previous_vcf_line = None
+        for gvf_lines_obj in read_in_gvf_data(gvf_input):
+            current_vcf_line = vcf_builder.build_vcf_line(gvf_lines_obj)
+            # is_missing_format_value will only be true if all the format field are missing.
+            is_missing_format_value = is_missing_format_value and current_vcf_line.format_keys == ['.']
             # Each GVF feature has been converted to a VCF object so begin comparing and merging the VCF objects.
-            # initial merge
-            merge_or_kept_vcf_objects = get_list_of_merged_vcf_objects(list_of_vcf_objects, samples)
-            # identify if duplicates are present after merging
-            has_dups, chrom_pos_list = has_duplicates(merge_or_kept_vcf_objects)
-            # while duplicates are present, merge, then re-check for dups
-            max_iterations = 100
-            iteration = 0
-            list_of_vcf_objects_to_be_filtered = merge_or_kept_vcf_objects
-            while has_dups and iteration < max_iterations:
-                filtered_merge_or_kept_vcf_objects = filter_duplicates_by_merging(chrom_pos_list, has_dups,
-                                                                                  list_of_vcf_objects,
-                                                                                  list_of_vcf_objects_to_be_filtered, samples)
-                has_dups, chrom_pos_list = has_duplicates(filtered_merge_or_kept_vcf_objects)
-                iteration += 1
-                list_of_vcf_objects_to_be_filtered = filtered_merge_or_kept_vcf_objects
-                logger.info(f"Iteration of merge (remove dups): {iteration}")
-
-            # Write the VCF objects as data lines in the VCF file.
-            if iteration != 0:
-                for vcf_line_object in filtered_merge_or_kept_vcf_objects:
-                    vcf_output.write(str(vcf_line_object) + "\n")
-            else:
-                for vcf_line_object in merge_or_kept_vcf_objects:
-                    vcf_output.write(str(vcf_line_object) + "\n")
+            if previous_vcf_line:
+                if current_vcf_line == previous_vcf_line:
+                    current_vcf_line.merge(previous_vcf_line, list_of_sample_names=samples)
+                else:
+                    open_data_lines.write(str(previous_vcf_line) + "\n")
+            previous_vcf_line = current_vcf_line
+        if previous_vcf_line:
+            open_data_lines.write(str(previous_vcf_line) + "\n")
         else:
             logger.warning("No feature lines were found for this GVF file.")
+
+    header_lines_per_type = vcf_builder.build_vcf_header()
+    vcf_header_file = write_header(vcf_output, pragmas_for_vcf, header_lines_per_type,
+                                   is_missing_format_value, samples)
+
+    logger.info(f"Combining the header and data lines to the following VCF output: {vcf_output}")
+    with open(vcf_output, "w") as vcf_output:
+        with open(vcf_header_file, "r") as vcf_header_fh:
+            for line in vcf_header_fh:
+                vcf_output.write(line)
+        with open(vcf_data_file, "r") as vcf_data_fh:
+            for line in vcf_data_fh:
+                vcf_output.write(line)
     vcf_output.close()
+    logger.info("Remove the temporary files")
+    if os.path.exists(vcf_header_file):
+        os.remove(vcf_header_file)
+    if os.path.exists(vcf_data_file):
+        os.remove(vcf_data_file)
     logger.info("GVF to VCF conversion complete")
+
+def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("gvf_input", help="GVF input file.")
+    parser.add_argument("vcf_output", help="VCF output file.")
+    parser.add_argument("-a", "--assembly", help="FASTA assembly file")
+    parser.add_argument("--log", help="Path to log file")
+    args = parser.parse_args()
+
+    # Set up logging functionality
+    if args.log:
+        log_cfg.add_file_handler(args.log)
+        logger.info(f"The log file is {args.log}")
+    else:
+        log_cfg.add_stdout_handler()
+    convert(args.gvf_input, args.vcf_output, args.assembly)
+
+
 
 if __name__ == "__main__":
     main()

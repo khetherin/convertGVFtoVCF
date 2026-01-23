@@ -2,8 +2,8 @@ import os
 import unittest
 
 
-from convert_gvf_to_vcf.utils import read_yaml, read_pragma_mapper, generate_symbolic_allele_dict, read_in_gvf_file, \
-    build_iupac_ambiguity_code
+from convert_gvf_to_vcf.utils import read_yaml, read_pragma_mapper, generate_symbolic_allele_dict, \
+    build_iupac_ambiguity_code, read_in_gvf_header, read_in_gvf_data
 from convert_gvf_to_vcf.lookup import Lookup
 
 class TestUtils(unittest.TestCase):
@@ -30,15 +30,27 @@ class TestUtils(unittest.TestCase):
         pragma_to_vcf_header = read_pragma_mapper(os.path.join(self.etc_folder, 'pragma_mapper.tsv'))
         assert len(pragma_to_vcf_header) > 0
 
-    def test_read_mapping_dictionary(self):
+    def test_generate_symbolic_allele_dict(self):
         symbolic_allele_dictionary = generate_symbolic_allele_dict(self.reference_lookup.mapping_attribute_dict)
         assert len(symbolic_allele_dictionary) > 0
 
-    def test_read_in_gvf_file(self):
-        gvf_pragmas, gvf_non_essential, gvf_lines_obj_list = read_in_gvf_file(self.input_file)
-        assert len(gvf_pragmas) > 1
-        assert len(gvf_non_essential) > 1
-        assert len(gvf_lines_obj_list) > 1
+    def test_read_in_gvf_header(self):
+        gvf_pragmas, gvf_non_essentials = read_in_gvf_header(self.input_file)
+        assert gvf_pragmas[0] == '##gff-version 3'
+        assert all((gvf_pragma.startswith('##') for gvf_pragma in gvf_pragmas))
+        assert len(gvf_pragmas) == 5
+        assert all((gvf_non_essential.startswith('#') for gvf_non_essential in gvf_non_essentials))
+        assert len(gvf_non_essentials) == 15
+
+    def test_read_in_gvf_data(self):
+        gvf_features_gen = read_in_gvf_data(self.input_file)
+        assert type(gvf_features_gen).__name__ ==  'generator'
+        # 7 lines in the GVF
+        lines = list(gvf_features_gen)
+        assert len(lines) == 7
+        assert type(lines[0]).__name__ ==  'GvfFeatureline'
+        assert lines[0].start == '1'
+        assert lines[0].end == '2'
 
     def test_build_iupac_ambiguity_code(self):
         expected_dictionary_iupac ={
