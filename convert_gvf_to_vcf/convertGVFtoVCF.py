@@ -336,6 +336,7 @@ def convert(gvf_input, vcf_output, assembly):
     logger.info(f"Combining the header and data lines to the following VCF output: {vcf_output}")
     vcf_chromosome_counter = Counter()
     vcf_alt_counter = Counter()
+    vcf_info_counter = Counter()
     vcf_data_line_count = 0
     with open(vcf_output, "w") as vcf_output:
         with open(vcf_header_file, "r") as vcf_header_fh:
@@ -345,9 +346,11 @@ def convert(gvf_input, vcf_output, assembly):
             for line in vcf_data_fh:
                 vcf_output.write(line)
                 vcf_data_line_count += 1
-
                 vcf_chromosome_counter.update([line.split("\t")[0]])
                 vcf_alt_counter.update([line.split("\t")[4]])
+                info_keys = [info.split('=')[0] for info in line.split("\t")[7].split(';')]
+                vcf_info_counter.update(info_keys)
+
 
     vcf_output.close()
     logger.info("Remove the temporary files")
@@ -366,7 +369,8 @@ def convert(gvf_input, vcf_output, assembly):
         vcf_chromosome_count=dict(vcf_chromosome_counter), # after merging
         gvf_sv_so_term_count=dict(gvf_sv_so_term_counter),
         vcf_alt_count = dict(vcf_alt_counter),
-        vcf_alt_missing = vcf_alt_counter["."]
+        vcf_alt_missing = vcf_alt_counter["."],
+        vcf_info_count = dict(vcf_info_counter)
     )
     return conversion_payload
 

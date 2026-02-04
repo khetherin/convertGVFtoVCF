@@ -21,6 +21,7 @@ class StatisticsPayload:
     gvf_sv_so_term_count: Optional[Union[dict, None]]
     vcf_alt_count: Optional[Union[dict, None]]
     vcf_alt_missing: Optional[Union[int, None]]
+    vcf_info_count: Optional[Union[dict, None]]
 
 class FileStatistics:
     """
@@ -49,7 +50,6 @@ class FileStatistics:
         self.vcf_merge_count = self.get_merge_count(payload)
         self.vcf_alt_alleles = self.get_alt_alleles(payload)
         # TODO: number of additional ALT alleles
-        # TODO: number of ALT alleles that could not be found
         self.vcf_alt_missing = self.get_alt_alleles_missing(payload)
         # TODO: number of SV types
         self.sv_types = self.get_sv_types(payload)
@@ -58,9 +58,17 @@ class FileStatistics:
         # attribute mapping
         # TODO: observed GVF attributes (name and count)
         # TODO: INFO FORMAT tags (name and count)
+        self.info_count = self.get_info_count(payload)
         # TODO: dropped GVF attributes (assistingconverter.py:convert_gvf_attributes_to_vcf_values)
         #convert > build_vcf_line> convert_gvf_attributes_to_vcf_values
         # TODO: number of SO terms
+
+    def get_info_count(self, payload):
+        if self.extension.endswith(".gvf"):
+            self.info_count = None
+        if self.extension.endswith(".vcf"):
+            self.info_count = payload.vcf_info_count
+        return self.info_count
 
     def get_alt_alleles_missing(self, payload):
         if self.extension.endswith(".gvf"):
