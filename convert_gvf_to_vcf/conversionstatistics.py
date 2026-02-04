@@ -15,9 +15,12 @@ class StatisticsPayload:
     vcf_header_fields: Optional[Union[str, None]]
     gvf_line_count: Optional[Union[int, None]]
     vcf_line_count: Optional[Union[int, None]]
+    vcf_merge_count: Optional[Union[int, None]]
     gvf_chromosome_count: Optional[Union[dict, None]]
     vcf_chromosome_count: Optional[Union[dict, None]]
     gvf_sv_so_term_count: Optional[Union[dict, None]]
+    vcf_alt_count: Optional[Union[dict, None]]
+    vcf_alt_missing: Optional[Union[int, None]]
 
 class FileStatistics:
     """
@@ -42,11 +45,12 @@ class FileStatistics:
         self.gvf_chromosome_naming_convention = payload.gvf_chromosome_count
         self.vcf_chromosome_naming_convention = payload.vcf_chromosome_count
         # variants
-        # TODO: number of lines for GVF/VCF
-        # self.variant_lines = self.get_variant_lines()
+        self.variant_lines = self.get_variant_lines(payload)
+        self.vcf_merge_count = self.get_merge_count(payload)
+        self.vcf_alt_alleles = self.get_alt_alleles(payload)
         # TODO: number of additional ALT alleles
-        # TODO: number of ALT alleles
         # TODO: number of ALT alleles that could not be found
+        self.vcf_alt_missing = self.get_alt_alleles_missing(payload)
         # TODO: number of SV types
         self.sv_types = self.get_sv_types(payload)
         # TODO: number of precise variants
@@ -58,6 +62,20 @@ class FileStatistics:
         #convert > build_vcf_line> convert_gvf_attributes_to_vcf_values
         # TODO: number of SO terms
 
+    def get_alt_alleles_missing(self, payload):
+        if self.extension.endswith(".gvf"):
+            self.vcf_alt_missing = None
+        if self.extension.endswith(".vcf"):
+            self.vcf_alt_missing = payload.vcf_alt_missing
+        return self.vcf_alt_missing
+
+    def get_alt_alleles(self, payload):
+        if self.extension.endswith(".gvf"):
+            self.vcf_alt_alleles = None;
+        if self.extension.endswith(".vcf"):
+            self.vcf_alt_alleles = payload.vcf_alt_count
+        return self.vcf_alt_alleles
+
     def get_sv_types(self, payload):
         if self.extension.endswith(".gvf"):
             self.sv_types = payload.gvf_sv_so_term_count
@@ -66,9 +84,20 @@ class FileStatistics:
             self.sv_types = None
         return self.sv_types
 
-    def get_variant_lines(self):
-        # TODO: count GVF lines, VCF lines and merge events
-        pass
+    def get_merge_count(self, payload):
+        if self.extension.endswith(".gvf"):
+            self.vcf_merge_count = None
+        if self.extension.endswith(".vcf"):
+            self.vcf_merge_count = payload.vcf_merge_count
+        return self.vcf_merge_count
+
+    def get_variant_lines(self, payload):
+        if self.extension.endswith(".gvf"):
+            self.variant_lines = payload.gvf_line_count
+        if self.extension.endswith(".vcf"):
+            self.variant_lines = payload.vcf_line_count
+        return self.variant_lines
+
 
     def get_sample_number_missing(self, samples, vcf_header_fields):
         if self.extension.endswith(".gvf"):
@@ -132,5 +161,6 @@ class FileStatistics:
                           f"GVF chromosomes = {self.gvf_chromosome_naming_convention}\n"
                           f"VCF chromosomes = {self.vcf_chromosome_naming_convention}\n"
                           f"sv_types = {self.sv_types}\n"
+                          # f"number of merges = {self.}\n"
                           )
         return summary_string

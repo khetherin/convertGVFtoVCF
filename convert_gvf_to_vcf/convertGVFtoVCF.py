@@ -305,6 +305,7 @@ def convert(gvf_input, vcf_output, assembly):
         logger.info("Generating the VCF datalines")
         previous_vcf_line = None
         gvf_feature_line_count = 0
+        vcf_number_of_merges = 0
         for gvf_lines_obj in read_in_gvf_data(gvf_input):
             gvf_feature_line_count += 1
             gvf_chromosome_counter.update([gvf_lines_obj.seqid])
@@ -316,6 +317,7 @@ def convert(gvf_input, vcf_output, assembly):
             if previous_vcf_line:
                 if current_vcf_line == previous_vcf_line:
                     current_vcf_line.merge(previous_vcf_line, list_of_sample_names=samples)
+                    vcf_number_of_merges += 1
                 else:
                     open_data_lines.write(str(previous_vcf_line) + "\n")
             previous_vcf_line = current_vcf_line
@@ -333,6 +335,7 @@ def convert(gvf_input, vcf_output, assembly):
 
     logger.info(f"Combining the header and data lines to the following VCF output: {vcf_output}")
     vcf_chromosome_counter = Counter()
+    vcf_alt_counter = Counter()
     vcf_data_line_count = 0
     with open(vcf_output, "w") as vcf_output:
         with open(vcf_header_file, "r") as vcf_header_fh:
@@ -342,7 +345,10 @@ def convert(gvf_input, vcf_output, assembly):
             for line in vcf_data_fh:
                 vcf_output.write(line)
                 vcf_data_line_count += 1
+
                 vcf_chromosome_counter.update([line.split("\t")[0]])
+                vcf_alt_counter.update([line.split("\t")[4]])
+
     vcf_output.close()
     logger.info("Remove the temporary files")
     if os.path.exists(vcf_header_file):
@@ -354,10 +360,13 @@ def convert(gvf_input, vcf_output, assembly):
         samples=samples,
         vcf_header_fields=header_fields,
         gvf_line_count= gvf_feature_line_count,
-        vcf_line_count= vcf_data_line_count,
+        vcf_line_count= vcf_data_line_count, # after merging
+        vcf_merge_count= vcf_number_of_merges,
         gvf_chromosome_count=dict(gvf_chromosome_counter),
         vcf_chromosome_count=dict(vcf_chromosome_counter), # after merging
-        gvf_sv_so_term_count=dict(gvf_sv_so_term_counter)
+        gvf_sv_so_term_count=dict(gvf_sv_so_term_counter),
+        vcf_alt_count = dict(vcf_alt_counter),
+        vcf_alt_missing = vcf_alt_counter["."]
     )
     return conversion_payload
 
