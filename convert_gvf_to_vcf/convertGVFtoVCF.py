@@ -299,6 +299,7 @@ def convert(gvf_input, vcf_output, assembly):
     # Convert each feature line in the GVF file to a VCF object (stores all the data for a line in the VCF file).
     # NOTE: Main Logic lives here.
     gvf_chromosome_counter = Counter()
+    gvf_sv_so_term_counter = Counter()
     vcf_data_file = vcf_output + '_data_lines'
     with open(vcf_data_file, "w") as open_data_lines:
         logger.info("Generating the VCF datalines")
@@ -307,6 +308,7 @@ def convert(gvf_input, vcf_output, assembly):
         for gvf_lines_obj in read_in_gvf_data(gvf_input):
             gvf_feature_line_count += 1
             gvf_chromosome_counter.update([gvf_lines_obj.seqid])
+            gvf_sv_so_term_counter.update([gvf_lines_obj.feature_type])
             current_vcf_line = vcf_builder.build_vcf_line(gvf_lines_obj)
             # is_missing_format_value will only be true if all the format field are missing.
             is_missing_format_value = is_missing_format_value and current_vcf_line.format_keys == ['.']
@@ -354,7 +356,8 @@ def convert(gvf_input, vcf_output, assembly):
         gvf_line_count= gvf_feature_line_count,
         vcf_line_count= vcf_data_line_count,
         gvf_chromosome_count=dict(gvf_chromosome_counter),
-        vcf_chromosome_count=dict(vcf_chromosome_counter) # after merging
+        vcf_chromosome_count=dict(vcf_chromosome_counter), # after merging
+        gvf_sv_so_term_count=dict(gvf_sv_so_term_counter)
     )
     return conversion_payload
 

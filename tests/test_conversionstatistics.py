@@ -33,7 +33,8 @@ class TestConversionStatistics(unittest.TestCase):
             gvf_line_count=None,
             vcf_line_count=None,
             gvf_chromosome_count=None,
-            vcf_chromosome_count=None
+            vcf_chromosome_count=None,
+            gvf_sv_so_term_count= None
         )
         statistics_summariser = FileStatistics(self.vcf_file, payload)
         assert statistics_summariser.sample_number_missing == 4
@@ -46,7 +47,8 @@ class TestConversionStatistics(unittest.TestCase):
             gvf_line_count=None,
             vcf_line_count=None,
             gvf_chromosome_count = None,
-            vcf_chromosome_count=None
+            vcf_chromosome_count=None,
+            gvf_sv_so_term_count=None
         )
         # GVF: set up to get the samples
         statistics_summariser = FileStatistics(self.gvf_file, payload)
@@ -62,7 +64,8 @@ class TestConversionStatistics(unittest.TestCase):
             gvf_line_count=None,
             vcf_line_count=None,
             gvf_chromosome_count = None,
-            vcf_chromosome_count=None
+            vcf_chromosome_count=None,
+            gvf_sv_so_term_count=None
         )
         statistics_summariser = FileStatistics(self.vcf_file, payload)
         assert statistics_summariser.sample_number == 4
@@ -74,7 +77,8 @@ class TestConversionStatistics(unittest.TestCase):
             gvf_line_count=None,
             vcf_line_count=None,
             gvf_chromosome_count=None,
-            vcf_chromosome_count=None
+            vcf_chromosome_count=None,
+            gvf_sv_so_term_count=None
         )
         statistics_summariser = FileStatistics(self.gvf_file, payload)
         md5 = statistics_summariser.get_file_md5()
@@ -95,7 +99,8 @@ class TestConversionStatistics(unittest.TestCase):
             gvf_line_count=None,
             vcf_line_count=None,
             gvf_chromosome_count=None,
-            vcf_chromosome_count=None
+            vcf_chromosome_count=None,
+            gvf_sv_so_term_count=None
         )
         statistics_summariser = FileStatistics(self.gvf_file, payload)
         version_gvf = statistics_summariser.get_file_version(gvf_pragma)
@@ -110,7 +115,8 @@ class TestConversionStatistics(unittest.TestCase):
             gvf_line_count=None,
             vcf_line_count=None,
             gvf_chromosome_count=None,
-            vcf_chromosome_count=None
+            vcf_chromosome_count=None,
+            gvf_sv_so_term_count=None
         )
         statistics_summariser = FileStatistics(self.vcf_file, payload)
         version_vcf = statistics_summariser.get_file_version(unique_converted_pragmas)
@@ -124,7 +130,8 @@ class TestConversionStatistics(unittest.TestCase):
             gvf_line_count=None,
             vcf_line_count=None,
             gvf_chromosome_count=None,
-            vcf_chromosome_count=None
+            vcf_chromosome_count=None,
+            gvf_sv_so_term_count=None
         )
         statistics_summariser = FileStatistics(self.gvf_file,payload)
 
@@ -145,6 +152,7 @@ class TestConversionStatistics(unittest.TestCase):
          sample_number,
          gvf_chromsome_count,
          vcf_chromosome_count,
+         gvf_sv_so_count,
          _
          ) = statistics_summary.split("\n")
         assert file_name_string == "File name = zebrafish.gvf"
@@ -153,6 +161,7 @@ class TestConversionStatistics(unittest.TestCase):
         assert file_version_string == "Version = ##gvf-version 1.06"
         assert file_md5_string == "md5 string = cd842fc345bd990d4b14fd80c1d08f8e"
         assert end_string == "====="
+        print(gvf_sv_so_count)
 
 if __name__ == '__main__':
     unittest.main()

@@ -17,6 +17,7 @@ class StatisticsPayload:
     vcf_line_count: Optional[Union[int, None]]
     gvf_chromosome_count: Optional[Union[dict, None]]
     vcf_chromosome_count: Optional[Union[dict, None]]
+    gvf_sv_so_term_count: Optional[Union[dict, None]]
 
 class FileStatistics:
     """
@@ -47,14 +48,23 @@ class FileStatistics:
         # TODO: number of ALT alleles
         # TODO: number of ALT alleles that could not be found
         # TODO: number of SV types
+        self.sv_types = self.get_sv_types(payload)
         # TODO: number of precise variants
         # TODO: number of imprecise variants
         # attribute mapping
         # TODO: observed GVF attributes (name and count)
         # TODO: INFO FORMAT tags (name and count)
-        # TODO: dropped GVF attributes (assistingconverter.py:convert_gvf_attributes_to_vcf_values catching the attributes for a later date)
+        # TODO: dropped GVF attributes (assistingconverter.py:convert_gvf_attributes_to_vcf_values)
+        #convert > build_vcf_line> convert_gvf_attributes_to_vcf_values
         # TODO: number of SO terms
 
+    def get_sv_types(self, payload):
+        if self.extension.endswith(".gvf"):
+            self.sv_types = payload.gvf_sv_so_term_count
+        if self.extension.endswith(".vcf"):
+            #TODO: add the SO terms
+            self.sv_types = None
+        return self.sv_types
 
     def get_variant_lines(self):
         # TODO: count GVF lines, VCF lines and merge events
@@ -121,5 +131,6 @@ class FileStatistics:
                           f"sample_numer = {self.sample_number}\n"
                           f"GVF chromosomes = {self.gvf_chromosome_naming_convention}\n"
                           f"VCF chromosomes = {self.vcf_chromosome_naming_convention}\n"
+                          f"sv_types = {self.sv_types}\n"
                           )
         return summary_string
