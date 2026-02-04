@@ -69,7 +69,7 @@ def convert_gvf_attributes_to_vcf_values(column9_of_gvf,
     gvf_attribute_dictionary = get_gvf_attributes(column9_of_gvf)
     vcf_info_values = {} # key is info field value; value is value
     vcf_format_values = {} # key is format field value; value is value
-    catching_for_review = []
+    dropped_gvf_attributes = []
     for attrib_key, attrib_value in gvf_attribute_dictionary.items():
         if attrib_key in mapping_attribute_dict:
             field_values = mapping_attribute_dict[attrib_key]
@@ -96,5 +96,5 @@ def convert_gvf_attributes_to_vcf_values(column9_of_gvf,
                     logger.warning(f"Unsupported Field: {field}")
         else:
             logger.info(f"catching attribute keys for review at a later date {attrib_key} {attrib_value}")
-            catching_for_review.append(attrib_key)
+            dropped_gvf_attributes.append(attrib_key)
     return gvf_attribute_dictionary, vcf_info_values, vcf_format_values
