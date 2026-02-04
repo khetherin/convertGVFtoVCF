@@ -153,7 +153,9 @@ class TestConvertGVFtoVCF(unittest.TestCase):
             self.assertEqual(unexpected_pragma_tokens, pragma_tokens)
 
     def test_convert(self):
-        convert(self.input_file , self.output_file, self.assembly)
+        convert_payload = convert(self.input_file , self.output_file, self.assembly)
+        print(convert_payload)
+        #####VCF#####
         header_lines = []
         data_lines = []
         with open(self.output_file) as open_file:
@@ -165,6 +167,21 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         assert header_lines[0] == '##fileformat=VCFv4.4'
         assert header_lines[-1] == '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tJenMale6\tWilds2-3\tZon9\tJenMale7'
         assert data_lines[0].split('\t')[4] == '<DEL>'
+        #####GVF#####
+        gvf_header = []
+        gvf_features = []
+        with open(self.input_file) as input:
+            for gvfline in input:
+                if gvfline.startswith("#"):
+                    gvf_header.append(line.strip())
+                else:
+                    gvf_features.append(line.strip())
+        # checking payload
+        assert convert_payload.samples == ['JenMale6', 'Wilds2-3', 'Zon9', 'JenMale7']
+        assert convert_payload.vcf_header_fields == '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tJenMale6\tWilds2-3\tZon9\tJenMale7'
+        assert convert_payload.gvf_line_count == len(gvf_features)
+        assert convert_payload.vcf_line_count == len(data_lines)
+
 
 if __name__ == '__main__':
     unittest.main()
