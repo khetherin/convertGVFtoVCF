@@ -275,7 +275,7 @@ def convert(gvf_input, vcf_output, assembly, paths):
         logger.info(f"Storing the assembly file: {assembly_file}")
         logger.info("Storing the IUPAC ambiguity dictionary.")
 
-        # Read tests file and separate out its components
+        # Read input file and separate out its components
         logger.info(f"Reading in the following GVF header from {gvf_input}")
         gvf_pragmas, gvf_pragma_comments = read_in_gvf_header(gvf_input)
         gvf_filename_only = os.path.basename(gvf_input)

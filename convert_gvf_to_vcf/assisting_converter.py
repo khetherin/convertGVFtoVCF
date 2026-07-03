@@ -107,7 +107,8 @@ def determine_vcf_type(vcf_info_values, vcf_format_values):
     :param vcf_info_values: dictionary of INFO values
     :param vcf_format_values: dictionary of FORMAT values
     """
-    has_genotypes = "GT" in vcf_format_values
+    has_genotypes = any(isinstance(sample_data, dict) and "GT" in sample_data
+                        for sample_data in vcf_format_values.values())
     has_allele_frequencies = "AF" in vcf_info_values
     has_allele_counts = ("AC" in vcf_info_values) and ("AN" in vcf_info_values)
     if has_genotypes:
