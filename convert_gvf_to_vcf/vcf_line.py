@@ -343,7 +343,7 @@ class VcfLineBuilder:
         if "DEL" in symbolic_allele or "DUP" in symbolic_allele:
             # TODO: IMPORTANT: this should be set to the missing place holder '.' but await clarification from the spec
             number_of_alt_alleles = len(symbolic_allele.split(","))
-            info_svclaim_value = ",".join("D" * number_of_alt_alleles)
+            info_svclaim_value = ",".join(["D"] * number_of_alt_alleles)
             info_dict.update({info_svclaim_key: info_svclaim_value})
             lines_standard_info.append(all_possible_info_lines["SVCLAIM"])
 
@@ -575,6 +575,9 @@ class VcfLine:
         """
         if previous_line_info_value is None and current_line_info_value is None:
             pass
+        elif key == "SVCLAIM" and previous_line_info_value is not None and current_line_info_value is not None:
+            number_of_alt_alleles = len(self.alt.split(","))
+            merged_info_dict[key] = ",".join(["D"] * number_of_alt_alleles)
         elif previous_line_info_value == current_line_info_value:
             merged_info_dict[key] = previous_line_info_value
         else:
@@ -584,6 +587,37 @@ class VcfLine:
                 merged_info_dict[key] = previous_line_info_value
             else:
                 merged_info_dict[key] = f"{previous_line_info_value},{current_line_info_value}"
+        return merged_info_dict
+
+    def merge_svlen(self, other_vcf_line, merged_info_dict):
+        """Maps SVLEN values accurately to unique ALT alleles
+        :param: other_vcf_line
+        :param: merged_info_dict
+        """
+        multiple_alts = self.alt.split(",") + other_vcf_line.alt.split(",")
+        unique_alts = sorted(list(set(multiple_alts)))
+
+        allele_to_svlen = {}
+
+        for vcf_line in [self, other_vcf_line]:
+            if "SVLEN" not in vcf_line.info_dict or not vcf_line.info_dict["SVLEN"]:
+                continue
+            vcf_line_alts = vcf_line.alt.split(",")
+            svlen_values = str(vcf_line.info_dict["SVLEN"]).split(",")
+
+            for i, allele in enumerate(vcf_line_alts):
+                if i < len(svlen_values):
+                    allele_to_svlen[allele] = svlen_values[i]
+
+        svlen_pairs = []
+        for allele in unique_alts:
+            if allele in allele_to_svlen:
+                svlen_pairs.append(allele_to_svlen[allele])
+            else:
+                svlen_pairs.append(".")  # add missing value
+
+        if svlen_pairs:
+            merged_info_dict["SVLEN"] = ",".join(svlen_pairs)
         return merged_info_dict
 
     def merge_ci(self, other_vcf_line, merged_info_dict):
@@ -678,11 +712,11 @@ class VcfLine:
         # Aim is to store SV INFO
         # info_dict = dict that stores all INFO key-values (including INFO from merged lines and SV INFO).
         for info_dict_key in self.info_dict.keys() | other_vcf_line.info_dict.keys():
-            if info_dict_key in ["CIEND", "CIPOS"]:
+            if info_dict_key in ["CIEND", "CIPOS", "SVLEN"]:
                 continue
             this_info_dict_value = self.info_dict.get(info_dict_key)
             other_info_dict_value = other_vcf_line.info_dict.get(info_dict_key)
-            merged_info_dict = self.fill_merge_dicts(merged_info_dict,info_dict_key, this_info_dict_value,other_info_dict_value)
+            merged_info_dict = self.fill_merge_dicts(merged_info_dict, info_dict_key, this_info_dict_value, other_info_dict_value)
 
         # Remove the ID
         key_to_remove = "ID"
@@ -690,6 +724,7 @@ class VcfLine:
             del merged_info_dict[key_to_remove]
 
         merged_info_dict = self.merge_ci(other_vcf_line, merged_info_dict)
+        merged_info_dict = self.merge_svlen(other_vcf_line, merged_info_dict)
         # Store merged info dict for this VCF line and the other VCF line.
         self.info_dict = merged_info_dict
         other_vcf_line.info_dict = merged_info_dict
@@ -750,6 +785,12 @@ class VcfLine:
         self.merge_info_dicts(other_vcf_line)
         # Merging FORMAT values - these go under the Sample
         self.merge_vcf_values_for_format(other_vcf_line)
+
+        if "SVCLAIM" in self.info_dict:
+            number_of_alt_alleles = len(self.alt.split(","))
+            final_svclaim_string = ",".join(["D"] * number_of_alt_alleles)
+            self.info_dict["SVCLAIM"] = final_svclaim_string
+            other_vcf_line.info_dict["SVCLAIM"] = final_svclaim_string
         return self
 
 
