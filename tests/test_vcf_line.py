@@ -367,7 +367,7 @@ class TestVcfline(unittest.TestCase):
         VcfLine.merge_info_dicts(
             self.vcf_line, self.other_vcf_line
         )
-        expected_merge_info_dict = {'NAME': 'nssv1412199,nssv9912199', 'SVLEN': '1,4'}
+        expected_merge_info_dict = {'NAME': 'nssv1412199,nssv9912199', 'SVLEN': '4'}
         assert self.vcf_line.info_dict == expected_merge_info_dict
         assert self.other_vcf_line.info_dict == expected_merge_info_dict
 
