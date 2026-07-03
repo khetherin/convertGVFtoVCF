@@ -384,6 +384,7 @@ class TestVcfline(unittest.TestCase):
         result = self.vcf_line_A_single_allele.merge_ci(other_vcf_line=self.vcf_line_B, merged_info_dict= merged_info_dict)
         self.assertEqual(result.get("CIEND"), "-5,5,-20,20")
         self.assertEqual(result.get("CIPOS"), "-1,1,-4,5")
+
         # VCF line with multiple alleles
         # self.vcf_line_A_multiple_allele =  alt='<DEL>,<DUP>', 'CIEND': "-5,5,-15,15", 'CIPOS': "-1,1,-3,3"
         # self.vcf_line_B                 =  alt='<DUP>',       'CIEND': "-20,20",      "CIPOS": "-4,5"}
@@ -391,6 +392,7 @@ class TestVcfline(unittest.TestCase):
         result = self.vcf_line_A_multiple_allele.merge_ci(other_vcf_line=self.vcf_line_B, merged_info_dict= merged_info_dict)
         self.assertEqual(result.get("CIEND"), "-5,5,-20,20")
         self.assertEqual(result.get("CIPOS"), "-1,1,-4,5")
+
     def test_format_info_string(self):
         # single ALT
         formatted_info_string = VcfLine.format_info_string(self.vcf_line)
