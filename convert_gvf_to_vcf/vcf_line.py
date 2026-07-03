@@ -342,7 +342,8 @@ class VcfLineBuilder:
         info_svclaim_key = "SVCLAIM"
         if "DEL" in symbolic_allele or "DUP" in symbolic_allele:
             # TODO: IMPORTANT: this should be set to the missing place holder '.' but await clarification from the spec
-            info_svclaim_value = "D"
+            number_of_alt_alleles = len(symbolic_allele.split(","))
+            info_svclaim_value = ",".join("D" * number_of_alt_alleles)
             info_dict.update({info_svclaim_key: info_svclaim_value})
             lines_standard_info.append(all_possible_info_lines["SVCLAIM"])
 
@@ -589,34 +590,82 @@ class VcfLine:
         """Maps CI values to (multiple) ALT alleles"""
         multiple_alts = self.alt.split(",") + other_vcf_line.alt.split(",")
         unique_alts = sorted(list(set(multiple_alts)))
+
+        # processing this vcf line AND the other_vcf_line for end values
+        end_values = []
+        for vcf_line in [self, other_vcf_line]:
+            end_value = self.parse_end_value(vcf_line.info_dict)
+            if end_value is not None:
+                end_values.append(end_value)
+        if end_values:
+            merged_info_dict["END"] = max(end_values)
+
+        # process ci values
         for ci_key in ["CIEND", "CIPOS"]:
             allele_to_intervals = {}
-            # processing this vcf line AND the other_vcf_line
             for vcf_line in [self, other_vcf_line]:
                 if ci_key not in vcf_line.info_dict or not vcf_line.info_dict[ci_key]:
                     continue
                 vcf_line_alts = vcf_line.alt.split(",")
                 ci_values = str(vcf_line.info_dict[ci_key]).split(",")
-                i = 0
-                for allele in vcf_line_alts:
-                    if i + 1 < len(ci_values):
-                        lower_bound = int(ci_values[i])
-                        upper_bound = int(ci_values[i + 1])
-                        # if identical symbolic alleles exist, expand the interval to largest
-                        if allele in allele_to_intervals:
-                            previous_lower_bound, previous_upper_bound = map(int, allele_to_intervals[allele].split(","))
-                            lower_bound = min(lower_bound, previous_lower_bound)
-                            upper_bound = max(upper_bound, previous_upper_bound)
+                ci_pairs = [ci_values[start_index:start_index + 2] for start_index in range(0, len(ci_values), 2)]
 
-                        allele_to_intervals[allele] = f"{lower_bound},{upper_bound}"
-                    i += 2
-            ci_value_pairs = []
-            for allele in unique_alts:
-                if allele in allele_to_intervals:
-                    ci_value_pairs.append(allele_to_intervals[allele])
-            if ci_value_pairs:
-                merged_info_dict[ci_key] = ",".join(ci_value_pairs)
+                for allele, pair in zip(vcf_line_alts, ci_pairs):
+                    if len(pair) < 2:
+                        break
+                    if pair[0] == '.' or pair[1] == '.':
+                        continue
+                    lower_bound = int(pair[0])
+                    upper_bound = int(pair[1])
+                    current_interval = allele_to_intervals.get(allele)
+                    allele_to_intervals[allele] = self.calculate_ci_bounds(
+                        current_interval, lower_bound, upper_bound
+                    )
+            # reformat the string
+            ci_string = self.populate_merged_ci(allele_to_intervals, unique_alts)
+            if ci_string is not None:
+                merged_info_dict[ci_key] = ci_string
         return merged_info_dict
+
+    def populate_merged_ci(self, allele_to_intervals, unique_alts):
+        """Merging CI with missing data handling
+        :param allele_to_intervals: a dictionary to map alleles to "lower, upper" ci interval
+        :param unique_alts: sorted and unique ALT alleles
+        """
+        ci_value_pairs = []
+        for allele in unique_alts:
+            if allele in allele_to_intervals:
+                ci_value_pairs.append(allele_to_intervals[allele])
+            else:
+                # for missing data
+                ci_value_pairs.append(".,.")
+        # only store if numerical values
+        if any(v != ".,." for v in ci_value_pairs):
+            return ",".join(ci_value_pairs)
+        return None
+
+    def calculate_ci_bounds(self, current_interval, lower_bound, upper_bound):
+        """Calculates CI bounds.
+        :param allele: ALT allele
+        :param current_interval: existing "lower, upper" string
+        :lower_bound: new lower bound
+        :upper_bound: new upper bound
+        """
+        # if identical symbolic alleles exist, expand the interval to largest
+        if current_interval:
+            previous_lower_bound, previous_upper_bound = map(int, current_interval.split(","))
+            lower_bound = min(lower_bound, previous_lower_bound)
+            upper_bound = max(upper_bound, previous_upper_bound)
+        return f"{lower_bound},{upper_bound}"
+
+    def parse_end_value(self, info_dict):
+        """Get the first value of the END from the INFO dictionary"""
+        if "END" in info_dict and info_dict["END"]:
+            # get first end value
+            first_end_value = str(info_dict["END"]).split(",")[0]
+            if first_end_value != '.':
+                return int(first_end_value)
+            return None
 
     def merge_info_dicts(self, other_vcf_line):
         """ Merges and stores the INFO dictionaries for the INFO field of a VCF line.
