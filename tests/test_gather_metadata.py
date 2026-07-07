@@ -24,6 +24,14 @@ class TestGatherMetadata(TestCase):
 
     @patch('convert_gvf_to_vcf.gather_metadata.EVAMetadataRetriever')
     def test_add_file_metadata(self, MockRetriever):
+        self.json_file_eva = "tmp_eva.json"
+        self.expected_json_eva_output = "tmp_expected.json"
+        with open(self.json_file_eva, "w") as f:
+            json.dump({"files": [{}]}, f)
+        with open(self.expected_json_eva_output, "w") as f:
+            json.dump({"files": [{"fileName": "a.vcf", "fileSize": 12345, "md5": "abcde12345"}]}, f)
+
+
         mock_retriever = MockRetriever.return_value
         mock_retriever._get_file_name.return_value = "a.vcf"
         mock_retriever._get_file_size.return_value = 12345
@@ -38,4 +46,7 @@ class TestGatherMetadata(TestCase):
         self.assertEqual(metadata["files"][0]["fileSize"], expected_metadata["files"][0]["fileSize"])
         self.assertEqual(metadata["files"][0]["md5"], expected_metadata["files"][0]["md5"])
 
-
+        if os.path.exists(self.json_file_eva):
+            os.remove(self.json_file_eva)
+        if os.path.exists(self.expected_json_eva_output):
+            os.remove(self.expected_json_eva_output)

@@ -177,10 +177,11 @@ def generate_vcf_header_line(is_missing_format, samples):
     :return: vcf_header: a string
     """
     if is_missing_format:
+        logger.info("VCF header line: mandatory 8 fields only; no FORMAT or sample columns.")
         vcf_header_fields = ["#CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"]
         vcf_header = '\t'.join(vcf_header_fields)
     else:
-
+        logger.info("VCF header line: full line with FORMAT and sample columns.")
         vcf_header_fields = ["#CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
         for sample in samples:
             vcf_header_fields.append(sample)
@@ -261,12 +262,9 @@ def convert(gvf_input, vcf_output, assembly, paths):
     logger.info(f"The provided input file is: {gvf_input}")
     logger.info(f"The provided output file is: {vcf_output}")
 
-    if assembly:
-        logger.info(f"The provided assembly file is: {assembly}")
-    assembly_file = os.path.abspath(assembly)
+    assembly_file = resolve_assembly_path(assembly, paths)
     assert os.path.isfile(assembly_file), f"Assembly file does not exist: {assembly_file}"
     assert os.path.isfile(gvf_input), f"GVF file does not exist {gvf_input}"
-
 
     # Creating lookup object to store important dictionaries and log what has been stored.
     reference_lookup = Lookup(assembly_file, paths)
@@ -298,38 +296,11 @@ def convert(gvf_input, vcf_output, assembly, paths):
         }
 
         vcf_builder = VcfLineBuilder(all_header_lines_per_type_dict, reference_lookup, samples)
-        is_missing_format_value = True
         # VCF dataline generation
         # Convert each feature line in the GVF file to a VCF object (stores all the data for a line in the VCF file).
         # NOTE: Main Logic lives here.
-        vcf_data_file = vcf_output + '_data_lines'
-        with open(vcf_data_file, "w") as open_data_lines:
-            logger.info("Generating the VCF datalines")
-            chrom_vcf_lines = []
-            current_chrom = None
-            has_any_features = False
-            logger.info(f"Reading in: {gvf_input}")
-            for gvf_entry in read_in_gvf_data(gvf_input):
-                # record GVF counts
-                report.gvf_feature_line_count += 1
-                report.gvf_chromosome_count[gvf_entry.seqid] += 1
-                report.gvf_sv_count.update([gvf_entry.feature_type])
-                has_any_features = True
-                # create the VCF line object
-                current_vcf_line = vcf_builder.build_vcf_line(gvf_entry)
-                # is_missing_format_value will only be true if all the format field are missing.
-                is_missing_format_value = is_missing_format_value and current_vcf_line.format_keys == ['.']
-                # On chromosome change, flush the vcf_lines for the previous chromosome
-                if current_chrom is not None and current_vcf_line.chrom != current_chrom:
-                    flush_chrom_vcf_lines(chrom_vcf_lines, open_data_lines, samples, report)
-                    chrom_vcf_lines = []
-                current_chrom = current_vcf_line.chrom
-                chrom_vcf_lines.append(current_vcf_line)
-            # Flush the final chromosome vcf_lines
-            if chrom_vcf_lines:
-                flush_chrom_vcf_lines(chrom_vcf_lines, open_data_lines, samples, report)
-            if not has_any_features:
-                logger.warning("No feature lines were found for this GVF file.")
+        is_missing_format_value, vcf_data_file = stream_gvf_to_vcf_data(gvf_input, report, samples, vcf_builder,
+                                                                        vcf_output)
 
         # VCF header generation
         header_lines_per_type = vcf_builder.build_vcf_header()
@@ -351,7 +322,65 @@ def convert(gvf_input, vcf_output, assembly, paths):
     finally:
         reference_lookup.close()
 
+
 #helper functions for convert
+def stream_gvf_to_vcf_data(gvf_input, report, samples, vcf_builder, vcf_output):
+    """Streams GVF rows to VCF
+    :param gvf_input: GVF file
+    :param report: statistics report object
+    :param samples: list of sample names
+    :param vcf_builder: builder to transform GVF record to VCFline object
+    :param vcf_output: file path for vcf_output
+    :return is_missing_format_value, vcf_data_file: boolean, file path
+    """
+    is_missing_format_value = True
+    vcf_data_file = vcf_output + '_data_lines'
+    with open(vcf_data_file, "w") as open_data_lines:
+        logger.info("Generating the VCF datalines")
+        chrom_vcf_lines = []
+        current_chrom = None
+        has_any_features = False
+        logger.info(f"Reading in: {gvf_input}")
+        for gvf_entry in read_in_gvf_data(gvf_input):
+            # record GVF counts
+            report.gvf_feature_line_count += 1
+            report.gvf_chromosome_count[gvf_entry.seqid] += 1
+            report.gvf_sv_count.update([gvf_entry.feature_type])
+            has_any_features = True
+            # create the VCF line object
+            current_vcf_line = vcf_builder.build_vcf_line(gvf_entry)
+            # is_missing_format_value will only be true if all the format field are missing.
+            is_missing_format_value = is_missing_format_value and current_vcf_line.format_keys == ['.']
+            # On chromosome change, sort then flush the vcf_lines for the previous chromosome
+            if current_chrom is not None and current_vcf_line.chrom != current_chrom:
+                chrom_vcf_lines.sort(key=lambda x: int(x.pos))
+                flush_chrom_vcf_lines(chrom_vcf_lines, open_data_lines, samples, report)
+                chrom_vcf_lines = []
+            current_chrom = current_vcf_line.chrom
+            chrom_vcf_lines.append(current_vcf_line)
+        # Sort then flush the final chromosome vcf_lines
+        if chrom_vcf_lines:
+            chrom_vcf_lines.sort(key=lambda x: int(x.pos))
+            flush_chrom_vcf_lines(chrom_vcf_lines, open_data_lines, samples, report)
+        if not has_any_features:
+            logger.warning("No feature lines were found for this GVF file.")
+    return is_missing_format_value, vcf_data_file
+
+
+def resolve_assembly_path(assembly, paths):
+    """Provides the absolute path for the assembly file."""
+    assert assembly, "An assembly argument must be provided"
+    logger.info(f"The provided assembly file is: {assembly}")
+    if hasattr(paths, 'get_assembly_path'):
+        assembly_file = paths.get_assembly_path(assembly)
+    else:
+        # find project directory (2 levels up)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # full path
+        assembly_file = os.path.normpath(os.path.abspath(os.path.join(base_dir, assembly)))
+    return assembly_file
+
+
 def construct_vcf_output(vcf_header_file, vcf_data_file, vcf_output):
     with open(vcf_output, "w") as vcf_output:
         with open(vcf_header_file, "r") as vcf_header_fh:
@@ -364,11 +393,12 @@ def construct_vcf_output(vcf_header_file, vcf_data_file, vcf_output):
 
 def flush_chrom_vcf_lines(vcf_lines, open_data_lines, samples, report):
     """Sort the per-chromosome vcf_lines by (pos, ref), then merge adjacent equal lines and write."""
-    vcf_lines.sort(key=lambda v: (v.pos, v.ref))
+    vcf_lines.sort(key=lambda v: (int(v.pos), v.ref.strip()))
     previous = None
     for current in vcf_lines:
         if previous:
-            if current == previous:
+            # if current == previous:
+            if current.chrom.strip() == previous.chrom.strip() and current.pos == previous.pos:
                 current.merge(previous, list_of_sample_names=samples)
                 report.vcf_number_of_merges += 1
             else:
@@ -388,7 +418,13 @@ def record_vcf_entry(open_data_lines, previous_vcf_line, report):
     report.vcf_variant_region_SOID.update([previous_vcf_line.info_dict.get("VARREGSOID")])
     report.vcf_variant_call_SOID.update([previous_vcf_line.info_dict.get("VARCALLSOID")])
     report.vcf_sample_number_count.update(previous_vcf_line.order_sample_names)
-    report.vcf_format_counter.update(previous_vcf_line.vcf_values_for_format)
+    # processing format
+    format_data = previous_vcf_line.vcf_values_for_format # e.g. {'sample_name': {'GT': '1/.'}}
+    format_tags = []
+    for sample_key, format_dict_by_sample in format_data.items():
+        if isinstance(format_dict_by_sample, dict):
+            format_tags.extend(format_dict_by_sample.keys())
+    report.vcf_format_counter.update(format_tags)
 
 def cleanup_temp_files(list_of_temp_files):
     for temp_file in list_of_temp_files:
@@ -400,12 +436,12 @@ def cleanup_temp_files(list_of_temp_files):
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("gvf_input", help="GVF input file.")
+    parser.add_argument("gvf_input", help="GVF tests file.")
     parser.add_argument("vcf_output", help="VCF output file.")
     parser.add_argument("--json_output_eva", help="EVA JSON output")
     parser.add_argument("--json_output_dgva", help="DGVa JSON output")
     parser.add_argument("--study_accession", help="DGVa Study Accession")
-    parser.add_argument("-a", "--assembly", help="FASTA assembly file")
+    parser.add_argument("-a", "--assembly", required=True, help="FASTA assembly file")
     parser.add_argument("--log", help="Path to log file")
     parser.add_argument("--config", required=True, help="Path to config file")
     parser.add_argument("--assembly_report", help="Path to assembly report file")

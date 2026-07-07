@@ -230,17 +230,19 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
             sample_analysis_alias_list.append("")
         # assume sample in VCF = sample_id
         sample_sampleinvcf = sample_id
-        sample_tax_id = self._fetch_tax_id(study_accession)
+        sample_tax_id = str(self._fetch_tax_id(study_accession))
         scientific_name = self._fetch_scientific_name(study_accession)
         # hold_date = self._fetch_hold_date(study_accession)
         collection_date = "not provided"
         geographic_location_country_and_or_sea = "not provided"
         biosample_object = {
-            "sample_title": sample_id,
-            "scientific_name": scientific_name,
-            "tax_id": sample_tax_id,
-            "collection date": collection_date,
-            "geographic location (country and/or sea)": geographic_location_country_and_or_sea
+            "name": sample_id,
+            "characteristics": {
+                "organism": [{"text": scientific_name}],
+                "taxId":[{"text": sample_tax_id}],
+                "collection date": [{"text": collection_date}],
+                "geographic location (country and/or sea)": [{"text": geographic_location_country_and_or_sea}]
+            }
         }
         sample_object = {
             "analysisAlias": sample_analysis_alias_list,
@@ -336,6 +338,17 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
             "SNP genotyping analysis": "Genotyping by array",
             "Probe signal intensity": "Genotyping by array"
         }
+        # key = experiment type; value = experiment type formatted for schema
+        experiment_type_to_schema_experiment_type = {
+            "whole_genome_sequencing": "Whole genome sequencing",
+            "whole_transcriptome_sequencing": "Whole transcriptome sequencing",
+            "exome_sequencing": "Exome sequencing",
+            "genotyping_by_array": "Genotyping by array",
+            "genotyping_by_sequencing": "Genotyping by sequencing",
+            "target_sequencing": "Target sequencing",
+            "transcriptomics": "Transcriptomics",
+            "curation": "Curation"
+        }
         experiment_type_set = set()
         for i in analysis_and_method_types:
             analysis_type = i[0]
@@ -347,7 +360,7 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
                 experiment_type_set.add(exp_type)
         if len(experiment_type_set) == 1:
             experiment_type = list(experiment_type_set)[0]
-            return experiment_type
+            return experiment_type_to_schema_experiment_type.get(experiment_type)
         return None
 
     # Formatting

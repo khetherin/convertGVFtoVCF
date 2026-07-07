@@ -4,7 +4,7 @@ paths:
   eva_schema_file: "etc/eva_schema.json"
   dgva_schema_file: "etc/dgva_schema.json"
   test_folder: "../tests"
-# external paths
+# external paths relative to package directory
 assembly_paths:
   GRCh37: "tests/input/human.fa"
   GRCh37.p13: "tests/input/human.fa"

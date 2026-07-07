@@ -1,5 +1,9 @@
 """This contains readers and utilities"""
+import importlib
 import json
+import sys
+from importlib.metadata import distributions
+
 import yaml
 import logging
 
@@ -131,3 +135,23 @@ def get_validated_value(config, key_parts_to_get, expected_type, default_value=N
         except (ValueError, TypeError):
             raise TypeError(f"Key '{key_parts_to_get}' must be {expected_type.__name__}")
     return value_in_config
+
+def get_version():
+    """Gets the dynamic version of the name in pyproject.toml file"""
+    try:
+        return importlib.metadata.version("convertGVFtoVCF")
+    except Exception:
+        return "Not found"
+
+def log_environment_packages(logger, file_name, VERSION):
+    """Logs the versions of packages used."""
+    logger.info(f"===={file_name} v{VERSION}====")
+    logger.info(f"Running on Python version: {sys.version}")
+    logger.info("==== FULL INSTALLED PACKAGES LIST ====")
+
+    # Extracts every single library installed in this environment
+    all_packages = sorted({f"{d.metadata['Name']}=={d.version}" for d in distributions()})
+
+    for package in all_packages:
+        logger.info(f"[PACKAGE] {package}")
+    logger.info("=======================================")

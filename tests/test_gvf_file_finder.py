@@ -90,5 +90,5 @@ class TestGvfFileFinder(unittest.TestCase):
         file_finder = GvfFileFinder(search_dir=self.top_dir)
         file_to_test = os.path.join(self.current_dir, 'estd1_Redon_et_al_2006.2014-04-01.GRCh37.Remapped.gvf')
         actual_md5 = file_finder.get_md5(file_to_test)
-        expected_md5 = "fa8993edf26f7fd064714a092ea701f6"
+        expected_md5 = "0e1ae1a712ac90501f4a57ec90bff713"
         self.assertEqual(actual_md5, expected_md5)

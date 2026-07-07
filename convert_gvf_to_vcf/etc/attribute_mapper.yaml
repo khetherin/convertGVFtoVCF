@@ -795,7 +795,7 @@ submitter_variant_region_id:
     INFO:
         FieldKey: SVRID
         Number: .
-        Type: Integer
+        Type: String
         Description: "Submitter variant region ID"
         From: DGVa
 support_count:

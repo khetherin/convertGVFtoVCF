@@ -26,3 +26,24 @@ class ProjectPaths:
         # external paths section of config
         self.assembly_paths = data.get('assembly_paths', {})
         self.assembly_report_paths = data.get('assembly_report_paths', {})
+
+    def get_assembly_path(self, assembly_input):
+        """ Gets the assembly path
+        :params assembly_input: assembly name in config.yaml e.g. GRCh38 or path
+        :return full_path: assembly full path
+        """
+        if not assembly_input:
+            return None
+        if assembly_input in self.assembly_paths:
+            # found the assembly in config.yaml
+            target_path = self.assembly_paths[assembly_input]
+        else:
+            target_path = assembly_input
+
+        # get full path
+        if os.path.isabs(target_path):
+            full_path = target_path
+        else:
+            full_path = os.path.join(self.root_dir, target_path)
+
+        return os.path.normpath(full_path)

@@ -21,7 +21,7 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         # Prepare Inputs
         self.input_file = os.path.join(self.tests_folder, "input", "zebrafish.gvf")
         # Prepare Outputs
-        self.output_file = os.path.join(self.tests_folder, "input", "a.vcf")
+        self.output_file = os.path.join(self.tests_folder, "output", "a.vcf")
         # Prepare References
         self.assembly = os.path.join(self.tests_folder, "input", "zebrafish.fa")
         self.reference_lookup = Lookup(self.assembly, self.paths)
@@ -177,10 +177,11 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         assert gvf_header[1] == "##gvf-version 1.06"
         assert gvf_features[0] == "chromosome1	DGVa	copy_number_loss	1	2	.	+	.	ID=1;Name=nssv1412199;Alias=CNV28955;variant_call_so_id=SO:0001743;parent=nsv811094;submitter_variant_call_id=CNV28955;sample_name=Wilds2-3;remap_score=.98857;Variant_seq=."
         # check statistics file exists and what is inside it
-        vcf_output_directory = os.path.join(self.tests_folder, "input")
+        vcf_output_directory = os.path.dirname(os.path.abspath(self.output_file))
         gvf_filename_only = os.path.basename(self.input_file)
         gvf_file_base, _ = os.path.splitext(gvf_filename_only)
         stats_file = os.path.join(vcf_output_directory, f"{gvf_file_base}.gvf.stats.txt")
+
 
         assert os.path.exists(stats_file) == True
         stats_lines = []
