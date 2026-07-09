@@ -117,7 +117,7 @@ class GvfMetadataCoordinator:
             project_value = json_object.get("project")
             if project_value is None:
                 continue
-            if stored_project is None:
+            if stored_project is None or stored_project == {}:
                 stored_project = project_value
             elif project_value != stored_project:
                 raise ValueError(f"Expected all files to have matching projects.\nproject value{project_value} vs stored{stored_project}\n")
