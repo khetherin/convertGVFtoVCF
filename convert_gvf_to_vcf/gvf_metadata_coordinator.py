@@ -30,7 +30,7 @@ class GvfMetadataCoordinator:
                 continue
             # one file in list of GVFs
             if len(gvf_files) >= 1:
-                self._process_gvf_files(gvf_files, study_accession)
+                self._process_gvf_files(gvf_files, study_accession, master_json)
             else:
                 logger.info("Not in a recognised format")
 
