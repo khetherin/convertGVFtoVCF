@@ -22,8 +22,8 @@ class GvfMetadataCoordinator:
         If multiple files it will reconfigure the JSON file separated out by assembly.
         """
         empty_studies_log = []
-        master_json = os.path.join(self.base_output_dir, "eva_submission.json")
         for study_accession, gvf_files in self.scan_results.items():
+            master_json = os.path.join(self.base_output_dir, f"eva_submission_{study_accession}.json")
             # empty list of GVF files
             if not gvf_files:
                 self._process_no_gvf_files(empty_studies_log, study_accession)
@@ -120,7 +120,7 @@ class GvfMetadataCoordinator:
             if stored_project is None or stored_project == {}:
                 stored_project = project_value
             elif project_value != stored_project:
-                raise ValueError(f"Expected all files to have matching projects.\nproject value{project_value} vs stored{stored_project}\n")
+                raise ValueError(f"Expected all files to have matching projects.\nproject value{project_value}\n vs stored{stored_project}\n")
         return stored_project if stored_project is not None else {}
 
     def aggregate_sample(self, json_objects):
