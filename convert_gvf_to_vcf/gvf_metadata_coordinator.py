@@ -67,8 +67,8 @@ class GvfMetadataCoordinator:
                 existing_metadata = json.load(master_in)
         # set up if the first file
         for key in ["submitterDetails", "project", "analysis", "sample", "files"]:
-            if key not in master_json:
-                master_json[key] = {} if key == "project" else []
+            if key not in existing_metadata:
+                existing_metadata[key] = {} if key == "project" else []
         json_objects_to_merge = [existing_metadata, new_metadata]
         # update
         updated_master_data = {
@@ -196,13 +196,16 @@ class GvfMetadataCoordinator:
         :params remapped files: list of remapped gvf files
         :params study_accession: study accession e.g. estd1
         :params submitted_files: list of submitted gvf files
+        :return processed_metadata: reconfigured metadata
         """
+        processed_metadata = None
         if len(submitted_files) > 1:
-            self._determine_same_and_reconfigure_json(study_accession, submitted_files, json_eva, eva_retriever)
+            processed_metadata = self._determine_same_and_reconfigure_json(study_accession, submitted_files, json_eva, eva_retriever)
 
         # for those with multiple submitted files, reconfigure the JSON
         if len(remapped_files) > 1:
-            self._determine_same_and_reconfigure_json(study_accession, remapped_files, json_eva, eva_retriever)
+            processed_metadata = self._determine_same_and_reconfigure_json(study_accession, remapped_files, json_eva, eva_retriever)
+        return processed_metadata
 
     def _process_single_assembly(self, assembly_name, files_in_assembly, gvf_name_groups, study_accession):
         """ Process an assembly by organising input and output files, retrieving EVA metadata for the assembly and
@@ -279,6 +282,7 @@ class GvfMetadataCoordinator:
     def _determine_same_and_reconfigure_json(self, study_accession, submitted_or_remapped_files, json_eva, eva_retriever):
         """Determine if same biological or technical replicates, is so reconfigure JSON
         study_accession, target_files, json_eva, eva_retriever
+        :return metadata
         """
         determined_replicates = set()
         for _ in submitted_or_remapped_files:
@@ -291,10 +295,11 @@ class GvfMetadataCoordinator:
             determined_replicates.add(replicate_signature)
         # If all files share the same metadata, reconfigure the JSON file in its analysis section
         if len(determined_replicates) == 1:
-            self._reconfigure_json_multi_analysis(json_eva, submitted_or_remapped_files)
+            return self._reconfigure_json_multi_analysis(json_eva, submitted_or_remapped_files)
         else:
             # Leave json as it is (they differ so do not merge)
             pass
+        return None
 
     def _reconfigure_json_multi_analysis(self, json_eva, gvf_files):
         """Reconfigures the EVA JSON with multiple files. This affects analysis, files and sample sections.
