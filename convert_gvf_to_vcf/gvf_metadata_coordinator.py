@@ -120,7 +120,7 @@ class GvfMetadataCoordinator:
             if stored_project is None:
                 stored_project = project_value
             elif project_value != stored_project:
-                raise ValueError(f"Expected all files to have matching projects.\n")
+                raise ValueError(f"Expected all files to have matching projects.\nproject value{project_value} vs stored{stored_project}\n")
         return stored_project if stored_project is not None else {}
 
     def aggregate_sample(self, json_objects):
