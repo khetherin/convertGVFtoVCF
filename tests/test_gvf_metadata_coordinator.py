@@ -1,7 +1,9 @@
 import json
 import os.path
 import shutil
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
 
 from convert_gvf_to_vcf.gvf_metadata_coordinator import GvfMetadataCoordinator
@@ -16,10 +18,62 @@ class TestGvfMetadataCoordinator(unittest.TestCase):
         self.etc_folder = self.paths.etc_dir
         self.output_dir = os.path.join(self.test_dir, "output", "gvf_metadata_coord")
         os.makedirs(self.output_dir, exist_ok=True)
+        self.paths = ProjectPaths()
+        self.input_dir = Path(os.path.join(self.paths.test_dir, "input", "json_aggregator"))
+        self.output_file = Path(os.path.join(self.paths.test_dir, "output", "json_aggregator", "eva_submission.json"))
 
     def tearDown(self):
         if os.path.exists(self.output_dir):
             shutil.rmtree(self.output_dir)
+
+    def test_aggregation(self):
+        coordinator = GvfMetadataCoordinator(MagicMock(), MagicMock(), MagicMock())
+        expected_submitterDetails = [
+            {'lastName': 'Doe', 'firstName': 'Jane', 'email': 'jane@example.com', 'laboratory': 'Lab B', 'centre': 'Institute B'},
+            {'lastName': 'Smith', 'firstName': 'John', 'email': 'john@example.com', 'laboratory': 'Lab A', 'centre': 'Institute A'}
+        ]
+        expected_project = {
+            'title': 'Project Alpha', 'description': 'Study A', 'taxId': 9606, 'centre': 'Institute A'
+        }
+        expected_analysis = [
+            {'analysisTitle': 'Analysis B', 'analysisAlias': 'b2', 'description': 'Desc B', 'experimentType': 'Exome sequencing', 'referenceGenome': 'GCA_000001635.9'},
+            {'analysisTitle': 'Analysis A', 'analysisAlias': 'a1', 'description': 'Desc A', 'experimentType': 'Whole genome sequencing', 'referenceGenome': 'GCA_000001405.15'}
+        ]
+        expected_sample = [
+            {'analysisAlias': ['b2'], 'sampleInVCF': 'Sample_02', 'bioSampleAccession': 'SAMN00000002'},
+            {'analysisAlias': ['a1'], 'sampleInVCF': 'Sample_01', 'bioSampleAccession': 'SAMN00000001'}
+        ]
+        expected_files = [
+            {'analysisAlias': 'b2', 'fileName': 'data2.vcf.gz'},
+            {'analysisAlias': 'a1', 'fileName': 'data1.vcf.gz'}
+        ]
+        metadata_from_file_1 = {
+            "submitterDetails": [expected_submitterDetails[0]],
+            "project": expected_project,
+            "analysis": [expected_analysis[0]],
+            "sample": [expected_sample[0]],
+            "files": [expected_files[0]]
+        }
+        metadata_from_file_2 = {
+            "submitterDetails": [expected_submitterDetails[1]],
+            "project": expected_project,
+            "analysis": [expected_analysis[1]],
+            "sample": [expected_sample[1]],
+            "files": [expected_files[1]]
+        }
+        json_objects_list = [metadata_from_file_1, metadata_from_file_2]
+        aggregated_result = {
+            "submitterDetails": coordinator.aggregate_submitter_details(json_objects_list),
+            "project": coordinator.aggregate_project(json_objects_list),
+            "analysis": coordinator.aggregate_analysis(json_objects_list),
+            "sample": coordinator.aggregate_sample(json_objects_list),
+            "files": coordinator.aggregate_files(json_objects_list)
+        }
+        self.assertEqual(aggregated_result["submitterDetails"], expected_submitterDetails)
+        self.assertEqual(aggregated_result["project"], expected_project)
+        self.assertEqual(aggregated_result["analysis"], expected_analysis)
+        self.assertEqual(aggregated_result["sample"], expected_sample)
+        self.assertEqual(aggregated_result["files"], expected_files)
 
     @patch('convert_gvf_to_vcf.gvf_metadata_coordinator.logger')
     def test_process_studies(self, mock_logger):
@@ -234,32 +288,26 @@ class TestGvfMetadataCoordinator(unittest.TestCase):
         gvf_files = [f"{study_name}.{date_1}.GRCh38.Remapped.gvf",
                      f"{study_name}.{date_2}.GRCh38.Remapped.gvf"
         ]
-        json_eva = "tests/output/eva.json"
-        input_json_data = json.dumps(
-            {
-                "submitterDetails":[],
+
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_file:
+            json.dump({
+                "submitterDetails": [],
                 "project": {},
                 "analysis": [{}],
                 "sample": [{}],
                 "files": [{}]
-            }
-        )
-        mock_json_file = mock_open(read_data=input_json_data)
+            }, temp_file)
+            temp_json_path = temp_file.name
         coordinator._update_analysis_and_file_blocks = MagicMock(return_value=(
-            ["updated_analysis"], ["updated_files"], ["new_alias"]
-        ))
+                ["updated_analysis"], ["updated_files"], ["new_alias"]
+            ))
         coordinator._update_sample_block = MagicMock()
 
-        # get the modules variable dictionary to access functions
-        target_globals = coordinator._reconfigure_json_multi_analysis.__globals__
-        # replace open function with mock_json_file
-        with patch.dict(target_globals, {"open": mock_json_file}):
-            coordinator._reconfigure_json_multi_analysis(json_eva, gvf_files)
+
+        parsed_output = coordinator._reconfigure_json_multi_analysis(temp_json_path, gvf_files)
+
         coordinator._update_analysis_and_file_blocks.assert_called_once_with([{}], gvf_files, [{}])
         coordinator._update_sample_block.assert_called_once_with(["new_alias"], [{}])
-
-        written_data = "".join(call.args[0] for call in mock_json_file().write.call_args_list)
-        parsed_output = json.loads(written_data)
 
         self.assertEqual(parsed_output["analysis"], ["updated_analysis"])
         self.assertEqual(parsed_output["files"], ["updated_files"])
