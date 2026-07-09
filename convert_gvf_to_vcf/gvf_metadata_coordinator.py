@@ -22,20 +22,128 @@ class GvfMetadataCoordinator:
         If multiple files it will reconfigure the JSON file separated out by assembly.
         """
         empty_studies_log = []
+        master_json = os.path.join(self.base_output_dir, "eva_submission.json")
         for study_accession, gvf_files in self.scan_results.items():
             # empty list of GVF files
             if not gvf_files:
                 self._process_no_gvf_files(empty_studies_log, study_accession)
                 continue
             # one file in list of GVFs
-            elif len(gvf_files) >= 1:
+            if len(gvf_files) >= 1:
                 self._process_gvf_files(gvf_files, study_accession)
-                continue
             else:
-                print("not in a recognised format")
+                logger.info("Not in a recognised format")
+
         logger.info(f"Number of empty studies encountered: {len(empty_studies_log)}")
 
-    def _process_gvf_files(self, gvf_files, study_accession):
+    def _aggregate_and_clean_json(self, json_path, processed_metadata, master_storage_file):
+        """Fetches metadata if missing, runs deduplication methods, saves master, and deletes the temp file."""
+        if not os.path.exists(json_path):
+            return
+        try:
+            if processed_metadata is None:
+                with open(json_path, 'r', encoding='utf-8') as f_in:
+                    processed_metadata = json.load(f_in)
+            if processed_metadata:
+                self._merge_into_master_json(processed_metadata, master_storage_file)
+        except json.JSONDecodeError:
+            logger.error(f"Could not parse JSON: {json_path}")
+        finally:
+            try:
+                os.remove(json_path)
+                logger.info(f"Successfully removed file: {json_path}")
+            except OSError as err:
+                logger.warning(f"Could not delete file {json_path}: {err}")
+
+    def _merge_into_master_json(self, new_metadata, master_json):
+        """Merge new metadata into master.
+        :params new_metadata: metadata to integrate
+        :params master_json: final json file
+        """
+        # fetch existing metadata
+        existing_metadata = {}
+        if os.path.exists(master_json) and os.path.getsize(master_json) > 0:
+            with open(master_json, 'r', encoding='utf-8') as master_in:
+                existing_metadata = json.load(master_in)
+        # set up if the first file
+        for key in ["submitterDetails", "project", "analysis", "sample", "files"]:
+            if key not in master_json:
+                master_json[key] = {} if key == "project" else []
+        json_objects_to_merge = [existing_metadata, new_metadata]
+        # update
+        updated_master_data = {
+            "submitterDetails": self.aggregate_submitter_details(json_objects_to_merge),
+            "project": self.aggregate_project(json_objects_to_merge),
+            "analysis": self.aggregate_analysis(json_objects_to_merge),
+            "sample": self.aggregate_sample(json_objects_to_merge),
+            "files": self.aggregate_files(json_objects_to_merge)
+        }
+        # save
+        os.makedirs(os.path.dirname(master_json), exist_ok=True)
+        with open(master_json, 'w', encoding='utf-8') as master_out:
+            json.dump(updated_master_data, master_out, indent=2)
+
+
+    def _aggregate_field(self, json_objects, field_name):
+        """Aggregate and deduplicate any field.
+        :params: json_objects: list of json objects
+        :params: field_name: key to aggregate on
+        :return: aggregated: aggregated data
+        """
+        aggregated = []
+        for json_object in json_objects:
+            field_value = json_object.get(field_name)
+            if field_value is None:
+                continue
+            # ensure lists
+            records = field_value if isinstance(field_value, list) else [field_value]
+
+            for record in records:
+                if record not in aggregated:
+                    aggregated.append(record)
+        return aggregated
+
+    def aggregate_submitter_details(self, json_objects):
+        """Aggregate submitter details"""
+        return self._aggregate_field(json_objects, "submitterDetails")
+
+    def aggregate_project(self, json_objects):
+        """ Aggregate projects - NOTE: this expects the project to be the same to be merged!
+        :params: json_objects: list of json objects
+        :return stored_project: project object
+        """
+        stored_project = None
+        for json_object in json_objects:
+            project_value = json_object.get("project")
+            if project_value is None:
+                continue
+            if stored_project is None:
+                stored_project = project_value
+            elif project_value != stored_project:
+                raise ValueError(f"Expected all files to have matching projects.\n")
+        return stored_project if stored_project is not None else {}
+
+    def aggregate_sample(self, json_objects):
+        """Aggregate sample """
+        return self._aggregate_field(json_objects, "sample")
+
+    def aggregate_analysis(self, json_objects):
+        """Gather all analysis objects from all json objects.
+        :params json_objects: list of json objects
+        :return all_analysis_objects: aggregated analysis objects
+        """
+        all_analysis_objects = []
+        for json_object in json_objects:
+            for analysis_object in json_object.get("analysis", []):
+                if analysis_object not in all_analysis_objects:
+                    all_analysis_objects.append(analysis_object)
+        return all_analysis_objects
+
+    def aggregate_files(self, json_objects):
+        """Aggregate files"""
+        return self._aggregate_field(json_objects, "files")
+
+    def _process_gvf_files(self, gvf_files, study_accession, master_json):
         """Process if gvf files are present.
         :params: gvf_files = list of gvf files
         :params: study_accession e.g. estd1
@@ -47,10 +155,10 @@ class GvfMetadataCoordinator:
             assembly_path, eva_retriever, json_eva, remapped_files, submitted_files = self._process_single_assembly(
                 assembly_name, files_in_assembly, gvf_name_groups, study_accession)
             # for those with multiple submitted files, reconfigure the JSON
-            self.reconfigure_metadata(eva_retriever, json_eva, remapped_files, study_accession, submitted_files)
-            # TODO: check the resolution of GVF
+            processed_metadata = self.reconfigure_metadata(eva_retriever, json_eva, remapped_files, study_accession, submitted_files)
             for individual_gvf in files_in_assembly:
                 self.convert_individual_gvf(assembly_path, eva_retriever, individual_gvf, json_eva)
+            self._aggregate_and_clean_json(json_eva, processed_metadata, master_json)
 
     def convert_individual_gvf(self, assembly_path, eva_retriever, individual_gvf, json_eva):
         """Converts and unpdates metadata for a single gvf file
@@ -214,12 +322,11 @@ class GvfMetadataCoordinator:
             metadata["files"] = multiple_files
             metadata["sample"] = sample_list
 
-            # output to JSON
-            with open(json_eva, 'w') as f_out:
-                json.dump(metadata, f_out, indent=4)
+            return metadata
 
         except (FileNotFoundError, json.JSONDecodeError) as err:
-            print(f"Failed to update multi-analysis schema in JSON due to error: {err}")
+            logger.error(f"Failed to update multi-analysis schema in JSON due to error: {err}")
+            return None
 
     @staticmethod
     def _update_sample_block(new_analysis_aliases, sample_list):
