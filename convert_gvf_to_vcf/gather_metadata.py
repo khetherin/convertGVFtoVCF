@@ -8,30 +8,47 @@ from convert_gvf_to_vcf.metadata_retrievers.eva_metadata import EVAMetadataRetri
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 logger = log_cfg.get_logger(__name__)
 
+import json
+import os
+import shutil
+
+
 def eva_add_file_metadata(retriever, json_output, vcf_output):
     files_file_name = retriever._get_file_name(vcf_output)
     files_file_size = retriever._get_file_size(vcf_output)
     files_file_md5 = retriever._get_file_md5(vcf_output)
 
-    try:
-        with open(json_output, 'r') as f_in:
-            metadata = json.load(f_in)
-    except FileNotFoundError:
+    if not os.path.exists(json_output):
         logger.error(f"Cannot find json output: {json_output}")
     # moving the file to a preconversion file to prevent confusion
     base_path, ext = os.path.splitext(json_output)
-    preconversion_json_path = base_path + "_preconverted.json" # this will be missing part of the files section
-    shutil.copy(json_output, preconversion_json_path)
+    preconversion_json_path = f"{base_path}_preconverted{ext}"
 
-    # adding the missing files sections
-    for file_object in metadata["files"]:
-        if file_object.get("fileName") == files_file_name:
-            file_object["fileName"] = files_file_name
-            file_object["fileSize"] = files_file_size
-            file_object["md5"] = files_file_md5
+    try:
+        shutil.copy(json_output, preconversion_json_path)
+        with open(json_output, 'r') as f_in:
+            metadata = json.load(f_in)
+        if "files" not in metadata or not isinstance(metadata["files"], list):
+            metadata["files"] = []
+        file_found = False
+        for file_object in metadata["files"]:
+            if file_object.get("fileName") == files_file_name:
+                file_object["fileSize"] = files_file_size
+                file_object["md5"] = files_file_md5
+                file_found = True
+                break  # Exit loop immediately once match is handled
+        # If a new file, append it
+        if not file_found:
+            metadata["files"].append({
+                "fileName": files_file_name,
+                "fileSize": files_file_size,
+                "md5": files_file_md5
+            })
+        with open(json_output, 'w') as f_out:
+            json.dump(metadata, f_out, indent=4)
+    except (IOError, json.JSONDecodeError) as e:
+        logger.error(f"Failed to process or rewrite metadata for {json_output}: {e}")
 
-    with open(json_output, 'w') as f_out:
-        json.dump(metadata, f_out, indent=4)
 
 def gather_metadata_workflow(config, json_eva, json_dgva, study_accession, assembly, assembly_report):
     eva_retriever = None
