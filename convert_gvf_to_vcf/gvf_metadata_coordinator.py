@@ -23,14 +23,15 @@ class GvfMetadataCoordinator:
         """
         empty_studies_log = []
         for study_accession, gvf_files in self.scan_results.items():
-            master_json = os.path.join(self.base_output_dir, f"eva_submission_{study_accession}.json")
+            study_master_json = os.path.join(self.base_output_dir, "submission", study_accession,
+                                       f"eva_submission_{study_accession}.json")
             # empty list of GVF files
             if not gvf_files:
                 self._process_no_gvf_files(empty_studies_log, study_accession)
                 continue
             # one file in list of GVFs
             if len(gvf_files) >= 1:
-                self._process_gvf_files(gvf_files, study_accession, master_json)
+                self._process_gvf_files(gvf_files, study_accession, study_master_json)
             else:
                 logger.info("Not in a recognised format")
 
@@ -167,8 +168,17 @@ class GvfMetadataCoordinator:
         :param individual_gvf: gvf file
         :param json_eva: JSON file
         """
+        study, _, _ = self.parse_gvf_filename(individual_gvf)
+        if not study:
+            logger.error(f"Could not parse study from: {individual_gvf}")
+            return
+
+        study_submission_directory = os.path.join(self.base_output_dir, "submission", study)
+        os.makedirs(study_submission_directory, exist_ok=True)
+
         base_name = os.path.basename(individual_gvf).replace(".gvf", "")
-        individual_vcf_output = os.path.join(self.base_output_dir, f"{base_name}.vcf")
+        individual_vcf_output = os.path.join(study_submission_directory, f"{base_name}.vcf")
+
         if individual_gvf and individual_vcf_output and assembly_path and self.project_paths:
             convert(
                 gvf_input=individual_gvf,
@@ -394,6 +404,7 @@ class GvfMetadataCoordinator:
             assembly=assembly_path,
             assembly_report=assembly_report_path
         )
+
         return eva_retriever, dgva_retriever
 
     @staticmethod
