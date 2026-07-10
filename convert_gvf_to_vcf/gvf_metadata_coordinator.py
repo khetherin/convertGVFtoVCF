@@ -190,6 +190,11 @@ class GvfMetadataCoordinator:
                 assembly=assembly_path,
                 paths=self.project_paths
             )
+            if os.path.exists(individual_vcf_output):
+                try:
+                    os.sync()  # ensure vcf file is not empty before metadata update
+                except AttributeError:
+                    pass
             if eva_retriever:
                 eva_update_metadata_with_vcf(
                     eva_retriever=eva_retriever,
