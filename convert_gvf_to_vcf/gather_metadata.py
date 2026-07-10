@@ -25,9 +25,10 @@ def eva_add_file_metadata(retriever, json_output, vcf_output):
 
     # adding the missing files sections
     for file_object in metadata["files"]:
-        file_object["fileName"] = files_file_name
-        file_object["fileSize"] = files_file_size
-        file_object["md5"] = files_file_md5
+        if file_object.get("fileName") == files_file_name:
+            file_object["fileName"] = files_file_name
+            file_object["fileSize"] = files_file_size
+            file_object["md5"] = files_file_md5
 
     with open(json_output, 'w') as f_out:
         json.dump(metadata, f_out, indent=4)
