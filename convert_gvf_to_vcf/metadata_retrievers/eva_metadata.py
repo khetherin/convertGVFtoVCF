@@ -46,6 +46,7 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
             "sample": sample_metadata_array,
             "files": self._get_files(study_accession)
         }
+        os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
         with open(json_file_path, 'w') as f:
             json.dump(json_in_eva_format, f, indent=4)
         logger.info(f"Write JSON file for {study_accession}- SUCCESS: {json_file_path}")
