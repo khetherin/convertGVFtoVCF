@@ -136,10 +136,7 @@ def main():
 
     #########################################
     # for gvf file co ordination only
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_dir = os.path.join(args.output, timestamp)
-    os.makedirs(output_dir, exist_ok=True)
-    GvfMetadataCoordinator(gvf_data, output_dir, args.config).process_studies()
+    GvfMetadataCoordinator(gvf_data, args.output, args.config).process_studies()
     #TODO: count studies stats and top dir stats
     #########################################
 

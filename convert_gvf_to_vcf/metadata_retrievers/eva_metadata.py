@@ -963,7 +963,6 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
     # FILES SECTION
     # THESE GETTERS GET THE RELEVANT VALUE
     def _get_file_name(self, vcf_output):
-        print("TEST")
         file_name = os.path.basename(vcf_output)
         study_name = file_name.split(".")[0]
         file_name = os.path.join(study_name, file_name)
