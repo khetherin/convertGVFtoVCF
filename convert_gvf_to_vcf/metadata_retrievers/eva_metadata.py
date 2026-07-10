@@ -967,7 +967,7 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
         study_name = file_name.split(".")[0]
         # an export from bash
         base_dir = os.environ.get("SUBMISSION_BASE_DIR", "submission")
-        file_name = os.path.join(base_dir, study_name, file_name)
+        file_name = os.path.join(base_dir,"output", "*", "submission", study_name, file_name)
         return file_name
 
     def _get_file_size(self, vcf_output):
