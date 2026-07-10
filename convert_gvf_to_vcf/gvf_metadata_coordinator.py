@@ -23,7 +23,11 @@ class GvfMetadataCoordinator:
         """
         empty_studies_log = []
         for study_accession, gvf_files in self.scan_results.items():
-            study_master_json = os.path.join(self.base_output_dir, "submission", study_accession,
+            if gvf_files:
+                study_name, _, _ = self.parse_gvf_filename(gvf_files[0])
+            else:
+                study_name = study_accession
+            study_master_json = os.path.join(self.base_output_dir, "submission", study_name,
                                        f"eva_submission_{study_accession}.json")
             # empty list of GVF files
             if not gvf_files:
