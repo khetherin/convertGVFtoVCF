@@ -966,7 +966,7 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
     def _get_file_name(self, vcf_output):
         file_name = os.path.basename(vcf_output)
         study_name = file_name.split(".")[0]
-        file_name = os.path.join(study_name, file_name)
+        file_name = os.path.join("output","submission",study_name, file_name)
         return file_name
 
     def _get_file_size(self, vcf_output):
