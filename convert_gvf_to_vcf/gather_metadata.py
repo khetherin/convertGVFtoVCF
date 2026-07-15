@@ -14,7 +14,12 @@ import shutil
 
 
 def eva_add_file_metadata(retriever, json_output, vcf_output, study_accession):
-
+    """Add the Files section of the metadata JSON, post-conversion
+    :params retriever: eva metadata
+    :params json_output: path for output
+    :params vcf_output: path for VCF files to be added to metadata
+    :params: study_accession: study e.g. estd1
+    """
     files_file_name = retriever._get_file_name(vcf_output)
     files_file_size = retriever._get_file_size(vcf_output)
     files_file_md5 = retriever._get_file_md5(vcf_output)
