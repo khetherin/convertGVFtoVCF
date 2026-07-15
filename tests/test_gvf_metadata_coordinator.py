@@ -99,35 +99,36 @@ class TestGvfMetadataCoordinator(unittest.TestCase):
         coordinator.process_studies()
         coordinator._process_gvf_files.assert_called_once_with(multiple_gvf_files, "estd1")
 
-    def test_convert_individual_gvf(self):
+    @patch('convert_gvf_to_vcf.gvf_metadata_coordinator.eva_update_metadata_with_vcf')
+    @patch('convert_gvf_to_vcf.gvf_metadata_coordinator.convert')
+    def test_convert_individual_gvf(self, mock_convert, mock_update):
         coordinator = GvfMetadataCoordinator(MagicMock(), MagicMock(), MagicMock())
         coordinator.base_output_dir = "tests/output"
         coordinator.project_paths = self.paths
 
-        vcf_data_lines = "tests/output/estd1_Redon_et_al_2006.2014-04-01.GRCh37.Remapped.vcf_data_lines"
-        os.makedirs(os.path.dirname(vcf_data_lines), exist_ok=True)
-        vcf_file = "tests/output/estd1_Redon_et_al_2006.2014-04-01.GRCh37.Remapped.vcf"
+        study_accession = "estd1"
+        vcf_file = "tests/output/submission/estd1_Redon_et_al_2006/estd1_Redon_et_al_2006.2014-04-01.GRCh37.Remapped.vcf"
+        input_gvf = "tests/data_dir/estd1_Redon_et_al_2006/gvf/estd1_Redon_et_al_2006.2014-04-01.GRCh37.Remapped.gvf"
 
-        module_path = "convert_gvf_to_vcf.gvf_metadata_coordinator"
-        with (patch(f"{module_path}.convert") as mock_convert,
-              patch(f"{module_path}.eva_update_metadata_with_vcf") as mock_update):
-                coordinator.convert_individual_gvf(
-                        assembly_path="tests/input/human.fa",
-                        eva_retriever="mock_retriever",
-                        individual_gvf="tests/data_dir/estd1_Redon_et_al_2006/gvf/estd1_Redon_et_al_2006.2014-04-01.GRCh37.Remapped.gvf",
-                        json_eva="eva.json"
-                )
-                mock_convert.assert_called_once_with(
-                    gvf_input="tests/data_dir/estd1_Redon_et_al_2006/gvf/estd1_Redon_et_al_2006.2014-04-01.GRCh37.Remapped.gvf",
-                    vcf_output=vcf_file,
-                    assembly="tests/input/human.fa",
-                    paths=self.paths
-                )
-                mock_update.assert_called_once_with(
-                    eva_retriever="mock_retriever",
-                    json_eva="eva.json",
-                    vcf_output=vcf_file
-                )
+        coordinator.convert_individual_gvf(
+            assembly_path="tests/input/human.fa",
+            eva_retriever="mock_retriever",
+            individual_gvf=input_gvf,
+            json_eva="eva.json"
+        )
+
+        mock_convert.assert_called_once_with(
+            gvf_input=input_gvf,
+            vcf_output=vcf_file,
+            assembly="tests/input/human.fa",
+            paths=self.paths
+        )
+        mock_update.assert_called_once_with(
+            eva_retriever="mock_retriever",
+            json_eva="eva.json",
+            vcf_output=vcf_file,
+            study_accession=study_accession
+        )
 
     def test_reconfigure_metadata(self):
         coordinator = GvfMetadataCoordinator(MagicMock(), MagicMock(), MagicMock())

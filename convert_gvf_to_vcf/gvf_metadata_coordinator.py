@@ -173,6 +173,7 @@ class GvfMetadataCoordinator:
         :param json_eva: JSON file
         """
         study, _, _ = self.parse_gvf_filename(individual_gvf)
+        study_accession = study.split("_")[0]
         if not study:
             logger.error(f"Could not parse study from: {individual_gvf}")
             return
@@ -196,7 +197,7 @@ class GvfMetadataCoordinator:
                     eva_retriever=eva_retriever,
                     json_eva=json_eva,
                     vcf_output=individual_vcf_output,
-                    study_accession=study
+                    study_accession=study_accession
                 )
         else:
             logger.error("Missing parameters to convert:\n\t"
