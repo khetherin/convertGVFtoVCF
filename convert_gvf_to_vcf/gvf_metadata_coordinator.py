@@ -195,7 +195,8 @@ class GvfMetadataCoordinator:
                 eva_update_metadata_with_vcf(
                     eva_retriever=eva_retriever,
                     json_eva=json_eva,
-                    vcf_output=individual_vcf_output
+                    vcf_output=individual_vcf_output,
+                    study_accession=study
                 )
         else:
             logger.error("Missing parameters to convert:\n\t"
