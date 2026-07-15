@@ -43,7 +43,7 @@ def eva_add_file_metadata(retriever, json_output, vcf_output, study_accession):
                 file_object["fileSize"] = files_file_size
                 file_object["md5"] = files_file_md5
                 file_found = True
-                break  # Exit loop immediately once match is handled
+                break
         # If a new file, append it
         if not file_found:
             metadata["files"].append({
