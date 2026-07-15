@@ -14,8 +14,6 @@ import shutil
 
 
 def eva_add_file_metadata(retriever, json_output, vcf_output, study_accession):
-    files_analysis_id_list = retriever._fetch_analysis_ids(study_accession)
-    files_analysis_alias = retriever._fetch_analysis_alias(study_accession, files_analysis_id_list)
 
     files_file_name = retriever._get_file_name(vcf_output)
     files_file_size = retriever._get_file_size(vcf_output)
@@ -31,6 +29,11 @@ def eva_add_file_metadata(retriever, json_output, vcf_output, study_accession):
         shutil.copy(json_output, preconversion_json_path)
         with open(json_output, 'r') as f_in:
             metadata = json.load(f_in)
+        if "analysis" in metadata and isinstance(metadata["analysis"], list) and len(metadata["analysis"]) > 0:
+            files_analysis_alias = metadata["analysis"][0].get("analysisAlias")
+        else:
+            files_analysis_id_list = retriever._fetch_analysis_ids(study_accession)
+            files_analysis_alias = retriever._fetch_analysis_alias(study_accession, files_analysis_id_list)
         if "files" not in metadata or not isinstance(metadata["files"], list):
             metadata["files"] = []
         file_found = False
