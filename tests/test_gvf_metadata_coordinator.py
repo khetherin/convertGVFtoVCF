@@ -79,25 +79,36 @@ class TestGvfMetadataCoordinator(unittest.TestCase):
     def test_process_studies(self, mock_logger):
         no_gvf_files = []
         single_gvf_file = ["path/to/file1.gvf"]
-        multiple_gvf_files =  ["path/to/file1.gvf", "path/to/file2.gvf"]
-        # testing no GVF files
+        multiple_gvf_files = ["path/to/file1.gvf", "path/to/file2.gvf"]
+
+        # no gvf
         study_and_gvf_files_input_data = {"estd1": no_gvf_files}
         coordinator = GvfMetadataCoordinator(study_and_gvf_files_input_data, self.output_dir, self.config)
+        coordinator.base_output_dir = self.output_dir
         coordinator._process_no_gvf_files = MagicMock()
         coordinator.process_studies()
-        coordinator._process_no_gvf_files.assert_called_once_with(no_gvf_files, "estd1")
-        # testing one GVF file
+        coordinator._process_no_gvf_files.assert_called_once_with([], "estd1")
+        # single gvf
         study_and_gvf_files_input_data = {"estd1": single_gvf_file}
         coordinator = GvfMetadataCoordinator(study_and_gvf_files_input_data, self.output_dir, self.config)
-        coordinator._process_gvf_files = MagicMock()
-        coordinator.process_studies() #
-        coordinator._process_gvf_files.assert_called_once_with(single_gvf_file, "estd1")
-        # testing multiple GVF file
-        study_and_gvf_files_input_data = {"estd1": multiple_gvf_files}
-        coordinator = GvfMetadataCoordinator(study_and_gvf_files_input_data, self.output_dir, self.config)
+        coordinator.base_output_dir = self.output_dir
+        coordinator.parse_gvf_filename = MagicMock(return_value=("estd1_Redon_et_al_2006", None, None))
         coordinator._process_gvf_files = MagicMock()
         coordinator.process_studies()
-        coordinator._process_gvf_files.assert_called_once_with(multiple_gvf_files, "estd1")
+        expected_json_1 = os.path.join(self.output_dir, "submission", "estd1_Redon_et_al_2006",
+                                       "eva_submission_estd1.json")
+        coordinator._process_gvf_files.assert_called_once_with(single_gvf_file, "estd1", expected_json_1)
+
+        # multiple
+        study_and_gvf_files_input_data = {"estd1": multiple_gvf_files}
+        coordinator = GvfMetadataCoordinator(study_and_gvf_files_input_data, self.output_dir, self.config)
+        coordinator.base_output_dir = self.output_dir
+        coordinator.parse_gvf_filename = MagicMock(return_value=("estd1_Redon_et_al_2006", None, None))
+        coordinator._process_gvf_files = MagicMock()
+        coordinator.process_studies()
+        expected_json_2 = os.path.join(self.output_dir, "submission", "estd1_Redon_et_al_2006",
+                                       "eva_submission_estd1.json")
+        coordinator._process_gvf_files.assert_called_once_with(multiple_gvf_files, "estd1", expected_json_2)
 
     @patch('convert_gvf_to_vcf.gvf_metadata_coordinator.eva_update_metadata_with_vcf')
     @patch('convert_gvf_to_vcf.gvf_metadata_coordinator.convert')
