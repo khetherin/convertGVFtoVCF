@@ -13,7 +13,10 @@ import os
 import shutil
 
 
-def eva_add_file_metadata(retriever, json_output, vcf_output):
+def eva_add_file_metadata(retriever, json_output, vcf_output, study_accession):
+    files_analysis_id_list = retriever._fetch_analysis_ids(study_accession)
+    files_analysis_alias = retriever._fetch_analysis_alias(study_accession, files_analysis_id_list)
+
     files_file_name = retriever._get_file_name(vcf_output)
     files_file_size = retriever._get_file_size(vcf_output)
     files_file_md5 = retriever._get_file_md5(vcf_output)
@@ -33,6 +36,7 @@ def eva_add_file_metadata(retriever, json_output, vcf_output):
         file_found = False
         for file_object in metadata["files"]:
             if file_object.get("fileName") == files_file_name:
+                file_object["analysisAlias"] = files_analysis_alias
                 file_object["fileSize"] = files_file_size
                 file_object["md5"] = files_file_md5
                 file_found = True
@@ -40,6 +44,7 @@ def eva_add_file_metadata(retriever, json_output, vcf_output):
         # If a new file, append it
         if not file_found:
             metadata["files"].append({
+                "analysisAlias": files_analysis_alias,
                 "fileName": files_file_name,
                 "fileSize": files_file_size,
                 "md5": files_file_md5
@@ -66,9 +71,9 @@ def gather_metadata_workflow(config, json_eva, json_dgva, study_accession, assem
         dgva_retriever.create_json_dgva(json_dgva, study_accession)
     return eva_retriever, dgva_retriever
 
-def eva_update_metadata_with_vcf(eva_retriever, json_eva, vcf_output):
+def eva_update_metadata_with_vcf(eva_retriever, json_eva, vcf_output, study_accession):
     if eva_retriever and vcf_output and json_eva:
-        eva_add_file_metadata(eva_retriever, json_eva, vcf_output)
+        eva_add_file_metadata(eva_retriever, json_eva, vcf_output, study_accession)
 
 
 def main():
@@ -90,7 +95,7 @@ def main():
         assembly=args.assembly,
         assembly_report=args.assembly_report
     )
-    eva_update_metadata_with_vcf(eva_retriever, json_eva=args.json_output_eva, vcf_output=args.vcf_output)
+    eva_update_metadata_with_vcf(eva_retriever, json_eva=args.json_output_eva, vcf_output=args.vcf_output, study_accession=args.study_accession)
 
 
 if __name__ == "__main__":
