@@ -40,7 +40,8 @@ class ProjectPaths:
             target_path = self.assembly_paths[assembly_input]
         else:
             target_path = assembly_input
-
+        if "$" in target_path:
+            target_path = os.path.expandvars(target_path)
         # get full path
         if os.path.isabs(target_path):
             full_path = target_path
