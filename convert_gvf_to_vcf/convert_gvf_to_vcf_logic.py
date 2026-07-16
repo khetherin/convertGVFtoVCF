@@ -374,10 +374,13 @@ def resolve_assembly_path(assembly, paths):
     if hasattr(paths, 'get_assembly_path'):
         assembly_file = paths.get_assembly_path(assembly)
     else:
-        # find project directory (2 levels up)
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        # full path
-        assembly_file = os.path.normpath(os.path.abspath(os.path.join(base_dir, assembly)))
+        if os.path.isabs(assembly):
+            assembly_file = os.path.normpath(assembly)
+        else:
+            # find project directory (2 levels up)
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            # full path
+            assembly_file = os.path.normpath(os.path.abspath(os.path.join(base_dir, assembly)))
     return assembly_file
 
 
