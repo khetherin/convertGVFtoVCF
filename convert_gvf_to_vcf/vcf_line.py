@@ -24,7 +24,7 @@ def extract_reference_allele(seqIo_fasta, chromosome_name, position, end):
         reference_allele = seqIo_fasta[chromosome_name].seq[zero_indexed_position:end]
         return str(reference_allele)
     except KeyError as original_error:
-        error_message=f"Chromosome Naming Convention - clash detected. GVF chromosome name {chromosome_name} not in FASTA."
+        error_message=f"Chromosome Naming Convention - clash detected. GVF chromosome name '{chromosome_name}' not in FASTA."
         logger.error(error_message)
         raise ValueError(error_message) from original_error
 @dataclass
