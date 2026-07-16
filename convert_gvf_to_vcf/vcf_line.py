@@ -4,7 +4,6 @@ The purpose of this file is to populate for each field of a VCF line (and perfor
 
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-from numpy import error_message
 
 from convert_gvf_to_vcf.assisting_converter import convert_gvf_attributes_to_vcf_values
 from dataclasses import dataclass
