@@ -89,7 +89,7 @@ class GvfMetadataCoordinator:
                 gvf_files=remapped_files if remapped_files else gvf_files_for_assembly,
                 master_analysis=master_metadata["analysis"],
                 master_files=master_metadata["files"],
-                master_sample=master_metadata["sample"]
+                master_samples=master_metadata["sample"]
             )
 
             for individual_gvf in gvf_files_for_assembly:
