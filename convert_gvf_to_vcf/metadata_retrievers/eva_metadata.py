@@ -25,6 +25,9 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
     by querying the DGVa database.
     It will generate the metadata submission JSON file.
     """
+    def __init__(self, path_to_config_yaml, output_dir="output"):
+        super().__init__(path_to_config_yaml)
+        self.output_dir = output_dir
 
     def create_json_eva(self, json_file_path, study_accession, assembly, assembly_report):
         project_metadata = self._get_project_new(study_accession)  # (all projects are new projects)
@@ -966,9 +969,8 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
     def _get_file_name(self, vcf_output):
         file_name = os.path.basename(vcf_output)
         study_name = file_name.split(".")[0]
-        relative_file_name = os.path.join("output","submission",study_name, file_name)
-        abs_file_name = os.path.abspath(relative_file_name)
-        return abs_file_name
+        file_name = os.path.join(self.output_dir,"submission",study_name, file_name)
+        return file_name
 
     def _get_file_size(self, vcf_output):
         file_size = os.path.getsize(vcf_output)
