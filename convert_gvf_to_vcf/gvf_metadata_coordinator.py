@@ -173,10 +173,10 @@ class GvfMetadataCoordinator:
         :param json_eva: JSON file
         """
         study, _, _ = self.parse_gvf_filename(individual_gvf)
-        study_accession = study.split("_")[0]
         if not study:
             logger.error(f"Could not parse study from: {individual_gvf}")
             return
+        study_accession = study.split("_")[0]
 
         study_submission_directory = os.path.join(self.base_output_dir, "submission", study)
         os.makedirs(study_submission_directory, exist_ok=True)
