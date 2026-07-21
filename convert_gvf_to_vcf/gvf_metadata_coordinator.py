@@ -79,10 +79,17 @@ class GvfMetadataCoordinator:
                     eva_metadata = {}
             else:
                 eva_metadata = {}
+            if eva_metadata:
+                self._suffix_assembly_metadata(eva_metadata, assembly_name)
+                self._deduplicate_file_submitters(eva_metadata)
             # populate master metadata with existing metadata for submitterDetails and Projects
             if master_metadata["submitterDetails"] is None and eva_metadata:
                 master_metadata["submitterDetails"] = eva_metadata.get("submitterDetails")
                 master_metadata["project"] = eva_metadata.get("project")
+
+            if json_eva and os.path.exists(json_eva):
+                with open(json_eva, 'w') as f_out:
+                    json.dump(eva_metadata, f_out)
 
             self._reconfigure_assembly_metadata(
                 json_eva=json_eva,
@@ -100,6 +107,41 @@ class GvfMetadataCoordinator:
             with open(master_json, 'w', encoding='utf-8') as master_out:
                 json.dump(master_metadata, master_out, indent=2)
             logger.info(f"Saved aggregated master metadata to {master_json}")
+
+    def _suffix_assembly_metadata(self, metadata, assembly_name):
+        suffix = f"_{assembly_name}"
+        for analysis in metadata.get("analysis", []):
+            analysis["analysisAlias"] = f"{analysis.get('analysisAlias', '')}{suffix}"
+            analysis["analysisTitle"] = f"{analysis.get('analysisTitle', '')}{suffix}"
+        for files in metadata.get("files", []):
+            files["analysisAlias"] = f"{files.get('analysisAlias', '')}{suffix}"
+        for sample in metadata.get("sample", []):
+            sample["analysisAlias"] = [f"{alias}{suffix}" for alias in sample.get("analysisAlias", [])]
+
+    def _deduplicate_file_submitters(self, metadata):
+        if "submitterDetails" in metadata and metadata["submitterDetails"]:
+            seen_emails = set()
+            unique_submitters = []
+            for submitter in metadata["submitterDetails"]:
+                email_lower = submitter.get("email", "").lower()
+                if email_lower not in seen_emails:
+                    seen_emails.add(email_lower)
+                    unique_submitters.append(submitter)
+            metadata["submitterDetails"] = unique_submitters
+
+    def _finalize_master_metadata_cleanup(self, master_metadata):
+        merged_samples = {}
+        for sample in master_metadata["sample"]:
+            sample_name = sample.get("sampleInVCF")
+            if sample_name not in merged_samples:
+                merged_samples[sample_name] = sample
+            else:
+                combined_aliases = set(
+                    merged_samples[sample_name].get("analysisAlias", []) + sample.get("analysisAlias", []))
+                merged_samples[sample_name]["analysisAlias"] = list(combined_aliases)
+
+        master_metadata["sample"] = list(merged_samples.values())
+        master_metadata["files"] = [f for f in master_metadata["files"] if f.get("fileName")]
 
     def convert_individual_gvf(self, assembly_path, eva_retriever, individual_gvf, json_eva):
         """Converts and unpdates metadata for a single gvf file
