@@ -92,6 +92,51 @@ class TestGvfMetadataCoordinator(unittest.TestCase):
             study_accession=study_accession
         )
 
+    def test_suffix_assembly_metadata(self):
+        mock_metadata = {
+            "analysis": [{"analysisAlias": "estd1_analysis", "analysisTitle": "estd1"}],
+            "files": [{"analysisAlias": "estd1_analysis", "fileName": "test.vcf"}],
+            "sample": [{"analysisAlias": ["estd1_analysis"], "sampleInVCF": "NA18570"}]
+        }
+
+        coordinator = GvfMetadataCoordinator(MagicMock(), MagicMock(), MagicMock())
+        coordinator._suffix_assembly_metadata(mock_metadata, "GRCh38")
+
+
+        self.assertEqual(mock_metadata["analysis"][0]["analysisAlias"], "estd1_analysis_GRCh38")
+        self.assertEqual(mock_metadata["analysis"][0]["analysisTitle"], "estd1_GRCh38")
+        self.assertEqual(mock_metadata["files"][0]["analysisAlias"], "estd1_analysis_GRCh38")
+        self.assertEqual(mock_metadata["sample"][0]["analysisAlias"], ["estd1_analysis_GRCh38"])
+
+
+    def test_finalize_master_metadata_cleanup(self):
+        mock_master_metadata = {
+            "sample": [
+                {"sampleInVCF": "NA18570", "analysisAlias": ["estd1_GRCh38"]},
+                {"sampleInVCF": "NA18570", "analysisAlias": ["estd1_NCBI35"]}
+            ],
+            "files": [
+                {"analysisAlias": "estd1_NCBI35", "fileName": "submitted.vcf"},
+                {"analysisAlias": "estd1_GRCh38", "fileName": "remapped.vcf"}
+            ]
+        }
+
+        coordinator = GvfMetadataCoordinator(MagicMock(), MagicMock(), MagicMock())
+
+        coordinator._finalize_master_metadata_cleanup(mock_master_metadata)
+        sample = mock_master_metadata["sample"][0]["sampleInVCF"]
+        analysisAlias = mock_master_metadata["sample"][0]["analysisAlias"]
+
+        self.assertEqual(len(mock_master_metadata["sample"]), 1) # EXPECT ONE SAMPLE
+        self.assertEqual(sample, "NA18570")
+
+        self.assertEqual(len(analysisAlias), 2)
+        self.assertIn("estd1_GRCh38", analysisAlias)
+        self.assertIn("estd1_NCBI35", analysisAlias)
+
+        self.assertEqual(len(mock_master_metadata["files"]), 2)
+        self.assertEqual(mock_master_metadata["files"][0]["fileName"], "submitted.vcf")
+        self.assertEqual(mock_master_metadata["files"][1]["fileName"], "remapped.vcf")
 
     def test_process_single_assembly(self):
         coordinator = GvfMetadataCoordinator(MagicMock(), MagicMock(), MagicMock())
@@ -195,44 +240,76 @@ class TestGvfMetadataCoordinator(unittest.TestCase):
                      f"{study_name}.{date_2}.GRCh38.Remapped.gvf"
         ]
 
+        metadata_to_add= {
+            "submitterDetails": [
+                {
+                    "firstName": "NameTest",
+                    "lastName": "SurnameTest",
+                    "email": "a@b.com",
+                    "laboratory": "LabTest",
+                    "centre": "CentreTest"
+                }
+            ],
+            "project": {
+                "projectAccession": "PRJEB12345"
+            },
+            "analysis": [
+                {
+                    "analysisTitle": "TitleTest",
+                    "analysisAlias": "AliasTest",
+                    "description": "DesctiptionTest",
+                    "experimentType": "Whole genome sequencing",
+                    "referenceGenome": "GCA_000001405.15"
+                }
+            ],
+            "sample": [
+                {
+                    "analysisAlias": ["AliasTest"],
+                    "sampleInVCF": "Sample1",
+                    "bioSampleAccession": "SAMEA123456"
+                }
+            ],
+            "files": [
+                {
+                    "analysisAlias": "AliasTest",
+                    "fileName": "test.vcf"
+                }
+            ]
+        }
         with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json') as temp_file:
-            json.dump({
-                "submitterDetails": [],
-                "project": {},
-                "analysis": [{}],
-                "sample": [{}],
-                "files": [{}]
-            }, temp_file)
+            json.dump(metadata_to_add, temp_file)
             temp_json_path = temp_file.name
 
 
         coordinator._update_analysis_and_file_blocks = MagicMock(return_value=["new_alias"])
         coordinator._update_sample_block = MagicMock()
 
-        master_analysis = []
-        master_files = []
-        master_samples = []
-
+        master_metadata = {
+            "submitterDetails": None,
+            "project": None,
+            "analysis": [],
+            "sample": [],
+            "files": []
+        }
+        vcf_path="/a/path/to/my.vcf"
         coordinator._reconfigure_assembly_metadata(
             json_eva=temp_json_path,
             gvf_files=gvf_files,
-            master_analysis=master_analysis,
-            master_files=master_files,
-            master_samples=master_samples
+            master_metadata=master_metadata,
+            vcf_path=vcf_path
         )
 
         coordinator._update_analysis_and_file_blocks.assert_called_once_with(
-            analysis_list=[{}],
+            metadata_to_add=metadata_to_add,
             files=gvf_files,
-            files_list=[{}],
-            master_analysis_list=master_analysis,
-            master_files_list=master_files
+            master_metadata=master_metadata,
+            vcf_path=vcf_path
         )
 
         coordinator._update_sample_block.assert_called_once_with(
             new_analysis_aliases=["new_alias"],
-            sample_list=[{}],
-            master_sample_list=master_samples
+            metadata_to_add=metadata_to_add,
+            master_metadata=master_metadata
         )
         try:
             os.remove(temp_json_path)
@@ -248,35 +325,45 @@ class TestGvfMetadataCoordinator(unittest.TestCase):
         gvf_files = [f"{study_name}.{date_1}.GRCh38.Remapped.gvf",
                      f"{study_name}.{date_2}.GRCh38.Remapped.gvf"
         ]
-        analysis_list = [{"analysisTitle": "ProjectOne", "analysisAlias": "study1_alias"}]
-        files_list = [{"fileType": "vcf", "fileName": "old.vcf", "analysisAlias": "study1_alias"}]
-
-        master_analysis = []
-        master_files = []
-
+        metadata_to_add = {
+            "submitterDetails":[{"firstName": "J", "lastName": "D", "email": "a@b.com", "laboratory": "L", "centre": "C"}],
+            "project":{"projectAccession": "PRJEB12345"},
+            "analysis": [{"analysisTitle": "ProjectOne", "analysisAlias": "study1_alias"}],
+            "sample":[{"analysisAlias": ["study1_alias"], "sampleInVCF": "S1", "bioSampleAccession": "SAMEA123"}],
+            "files": [{"fileType": "vcf", "fileName": "old.vcf", "analysisAlias": "study1_alias"}]
+        }
+        master_metadata = {
+            "submitterDetails": None,
+            "project": None,
+            "analysis": [],
+            "sample": [],
+            "files": []
+        }
+        vcf_path="/a/test/output/path.vcf"
         new_analysis_aliases = coordinator._update_analysis_and_file_blocks(
-            analysis_list=analysis_list,
+            metadata_to_add=metadata_to_add,
             files=gvf_files,
-            files_list=files_list,
-            master_analysis_list=master_analysis,
-            master_files_list=master_files
+            master_metadata=master_metadata,
+            vcf_path=vcf_path
         )
         expected_aliases = ["study1_alias_file_1", "study1_alias_file_2"]
+
+
         self.assertEqual(new_analysis_aliases, expected_aliases)
 
-        self.assertEqual(len(master_analysis), 2)
-        self.assertEqual(master_analysis[0]["analysisAlias"], "study1_alias_file_1")
-        self.assertEqual(master_analysis[0]["analysisTitle"], "ProjectOne")
-        self.assertEqual(master_analysis[1]["analysisAlias"], "study1_alias_file_2")
-        self.assertEqual(master_analysis[1]["analysisTitle"], "ProjectOne")
+        self.assertEqual(len(master_metadata["analysis"]), 2)
+        self.assertEqual(master_metadata["analysis"][0]["analysisAlias"], "study1_alias_file_1")
+        self.assertEqual(master_metadata["analysis"][0]["analysisTitle"], "ProjectOne")
+        self.assertEqual(master_metadata["analysis"][1]["analysisAlias"], "study1_alias_file_2")
+        self.assertEqual(master_metadata["analysis"][1]["analysisTitle"], "ProjectOne")
 
-        self.assertEqual(len(master_files), 2)
-        self.assertEqual(master_files[0]["analysisAlias"], "study1_alias_file_1")
-        self.assertEqual(master_files[0]["fileName"], f"{study_name}.{date_1}.GRCh38.Remapped.gvf")
-        self.assertEqual(master_files[0]["fileType"], "vcf")
+        self.assertEqual(len(master_metadata["files"]), 2)
+        self.assertEqual(master_metadata["files"][0]["analysisAlias"], "study1_alias_file_1")
+        self.assertEqual(master_metadata["files"][0]["fileName"], f"/a/test/output/path.vcf")
+        self.assertEqual(master_metadata["files"][0]["fileType"], "vcf")
 
-        self.assertEqual(master_files[1]["analysisAlias"], "study1_alias_file_2")
-        self.assertEqual(master_files[1]["fileName"], f"{study_name}.{date_2}.GRCh38.Remapped.gvf")
+        self.assertEqual(master_metadata["files"][1]["analysisAlias"], "study1_alias_file_2")
+        self.assertEqual(master_metadata["files"][1]["fileName"], f"/a/test/output/path.vcf")
 
 if __name__ == '__main__':
     unittest.main()
