@@ -297,17 +297,18 @@ class GvfMetadataCoordinator:
         :params sample_list: block of EVA JSON
         """
         sample_list = metadata_to_add.get("sample", [])
-        raw_sample = sample_list[0] if isinstance(sample_list, list) and sample_list else sample_list
-        initial_sample_block = raw_sample if isinstance(raw_sample, dict) else {}
 
+        for initial_sample_block in sample_list:
+            if not isinstance(initial_sample_block, dict):
+                continue
 
-        for alias in new_analysis_aliases:
-            copied_sample = copy.deepcopy(initial_sample_block)
-            if "analysisAlias" in copied_sample and isinstance(copied_sample["analysisAlias"], list):
-                copied_sample["analysisAlias"] = [alias]
-            else:
-                copied_sample["analysisAlias"] = alias
-            master_metadata["sample"].append(copied_sample)
+            for alias in new_analysis_aliases:
+                copied_sample = copy.deepcopy(initial_sample_block)
+                if "analysisAlias" in copied_sample and isinstance(copied_sample["analysisAlias"], list):
+                    copied_sample["analysisAlias"] = [alias]
+                else:
+                    copied_sample["analysisAlias"] = alias
+                master_metadata["sample"].append(copied_sample)
 
     @staticmethod
     def _update_analysis_and_file_blocks(metadata_to_add, files, master_metadata, vcf_path):
