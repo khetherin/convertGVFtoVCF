@@ -85,15 +85,18 @@ class GvfMetadataCoordinator:
                 # overwrite with eva_metadata
                 with open(json_eva, 'w', encoding='utf-8') as f_out:
                     json.dump(eva_metadata, f_out)
+
+            for individual_gvf in gvf_files_for_assembly:
+                vcf_path = self.convert_individual_gvf(assembly_path, eva_retriever, individual_gvf, json_eva)
+
             # reconfigure with the master_metadata
             self._reconfigure_assembly_metadata(
                 json_eva=json_eva,
                 gvf_files=remapped_files if remapped_files else gvf_files_for_assembly,
-                master_metadata=master_metadata
+                master_metadata=master_metadata,
+                vcf_path=vcf_path
             )
 
-            for individual_gvf in gvf_files_for_assembly:
-                self.convert_individual_gvf(assembly_path, eva_retriever, individual_gvf, json_eva)
 
         if master_metadata["submitterDetails"] is not None:
             os.makedirs(os.path.dirname(master_json), exist_ok=True)
@@ -190,6 +193,7 @@ class GvfMetadataCoordinator:
                          f"vcf {individual_vcf_output}\n\t"
                          f"assembly {assembly_path}\n\t"
                          f"or project paths")
+        return individual_vcf_output
 
     def _process_single_assembly(self, assembly_name, files_in_assembly, gvf_name_groups, study_accession):
         """ Process an assembly by organising input and output files, retrieving EVA metadata for the assembly and
@@ -255,7 +259,7 @@ class GvfMetadataCoordinator:
         assembly = parts[2]
         return study, date, assembly
 
-    def _reconfigure_assembly_metadata(self, json_eva, gvf_files, master_metadata):
+    def _reconfigure_assembly_metadata(self, json_eva, gvf_files, master_metadata, vcf_path):
         """Reconfigures the EVA metadata JSON with multiple files. This affects analysis, files and sample sections.
         :params: json_eva Path to EVA JSON file
         :params: gvf_files list of GVF files
@@ -275,7 +279,8 @@ class GvfMetadataCoordinator:
         new_analysis_aliases = self._update_analysis_and_file_blocks(
             metadata_to_add=metadata,
             files=gvf_files,
-            master_metadata=master_metadata
+            master_metadata=master_metadata,
+            vcf_path=vcf_path
         )
         # after going through each GVF file, update the analysis alias in the sample block with the new analysis aliases
         self._update_sample_block(
@@ -305,7 +310,7 @@ class GvfMetadataCoordinator:
             master_metadata["sample"].append(copied_sample)
 
     @staticmethod
-    def _update_analysis_and_file_blocks(metadata_to_add, files, master_metadata):
+    def _update_analysis_and_file_blocks(metadata_to_add, files, master_metadata, vcf_path):
         """Updates analysis and file parts of the EVA JSON
         :params metadata_to_add: metadata_to_add
         :params files: gvf files
@@ -330,7 +335,6 @@ class GvfMetadataCoordinator:
 
         # change the Analysis and File blocks for each GVF file
         for index, file_path in enumerate(files, start=1):
-            file_name = os.path.basename(file_path)
 
             # rename the analysis alias string
             base_alias = initial_analysis_block.get("analysisAlias", "analysis")
@@ -345,7 +349,7 @@ class GvfMetadataCoordinator:
             # copy the file block and update that with new analysis alias
             file_block = copy.deepcopy(initial_file_block)
             file_block["analysisAlias"] = unique_alias
-            file_block["fileName"] = file_name
+            file_block["fileName"] = vcf_path
             master_metadata["files"].append(file_block)
         return new_analysis_aliases
 
