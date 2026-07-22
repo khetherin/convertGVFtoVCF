@@ -54,11 +54,12 @@ class GvfMetadataCoordinator:
         """Process if gvf files are present.
         :params: gvf_files = list of gvf files
         :params: study_accession e.g. estd1
+        :params: master_json = path to master metadata JSON
         """
         logger.info(f"GVF file(s) found for {study_accession}. Separating by assembly.")
         # separate files by assembly {"GRCh37": [gvf_file_paths], "GRCh38": [gvf_file_paths]})
         assembly_to_gvf_file_paths, gvf_name_groups = self._group_files_by_assembly(gvf_files)
-
+        # master metadata starts off empty and eva_metadata is added to this
         master_metadata = {
             "submitterDetails": None,
             "project": None,
@@ -301,7 +302,7 @@ class GvfMetadataCoordinator:
                 copied_sample["analysisAlias"] = [alias]
             else:
                 copied_sample["analysisAlias"] = alias
-            master_metadata["samples"].append(copied_sample)
+            master_metadata["sample"].append(copied_sample)
 
     @staticmethod
     def _update_analysis_and_file_blocks(metadata_to_add, files, master_metadata):
