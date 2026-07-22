@@ -141,7 +141,7 @@ class GvfMetadataCoordinator:
                 merged_samples[sample_name]["analysisAlias"] = list(combined_aliases)
 
         master_metadata["sample"] = list(merged_samples.values())
-        master_metadata["files"] = [f for f in master_metadata["files"] if f.get("fileName")]
+        master_metadata["files"] = [f for f in master_metadata["files"] if f.get("fileName") != ""]
 
     def convert_individual_gvf(self, assembly_path, eva_retriever, individual_gvf, json_eva):
         """Converts and unpdates metadata for a single gvf file
