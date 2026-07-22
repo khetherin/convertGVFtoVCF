@@ -99,6 +99,7 @@ class GvfMetadataCoordinator:
 
 
         if master_metadata["submitterDetails"] is not None:
+            self._finalize_master_metadata_cleanup(master_metadata)
             os.makedirs(os.path.dirname(master_json), exist_ok=True)
             with open(master_json, 'w', encoding='utf-8') as master_out:
                 json.dump(master_metadata, master_out)
