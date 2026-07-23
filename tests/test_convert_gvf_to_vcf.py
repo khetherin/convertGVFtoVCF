@@ -181,7 +181,7 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         vcf_output_directory = os.path.dirname(os.path.abspath(self.output_file))
         gvf_filename_only = os.path.basename(self.input_file)
         gvf_file_base, _ = os.path.splitext(gvf_filename_only)
-        stats_file = os.path.join(vcf_output_directory, f"{gvf_file_base}.gvf.stats.txt")
+        stats_file = os.path.join(vcf_output_directory, f"{gvf_file_base}.gvf.sorted.gvf.stats.txt")
 
 
         assert os.path.exists(stats_file) == True
