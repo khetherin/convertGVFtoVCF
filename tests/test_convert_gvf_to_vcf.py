@@ -7,7 +7,7 @@ from convert_gvf_to_vcf.convert_gvf_to_vcf_logic import generate_vcf_header_unst
     convert_gvf_pragmas_for_vcf_header, generate_vcf_header_line, parse_pragma, get_pragma_name_and_value, \
     get_pragma_tokens, \
     get_sample_name_from_pragma, get_unique_sample_names, convert_gvf_pragmas_to_vcf_header, \
-    convert_gvf_pragma_comment_to_vcf_header, generate_vcf_header_structured_lines, convert
+    convert_gvf_pragma_comment_to_vcf_header, generate_vcf_header_structured_lines, convert, sort_gvf_file
 from convert_gvf_to_vcf.project_paths import ProjectPaths
 
 
@@ -20,6 +20,7 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         self.tests_folder = self.paths.test_dir
         # Prepare Inputs
         self.input_file = os.path.join(self.tests_folder, "input", "zebrafish.gvf")
+        self.unsorted_input_file= os.path.join(self.tests_folder, "input", "zebrafish.gvf")
         # Prepare Outputs
         self.output_file = os.path.join(self.tests_folder, "output", "a.vcf")
         # Prepare References
@@ -236,6 +237,11 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         assert data_lines[1][1] == '5'
         assert data_lines[1][3] == 'A'
         assert data_lines[1][4] == 'G'
+
+    def test_sort_gvf_file(self):
+        sorted_gvf_file = sort_gvf_file(self.unsorted_input_file)
+        with open(sorted_gvf_file, "r") as generated_sorted_file, open(self.input_file, "r") as expected_sorted_file:
+            self.assertListEqual(generated_sorted_file.readlines(), expected_sorted_file.readlines())
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,7 @@
 import argparse
 import os
+import subprocess
+
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
 from convert_gvf_to_vcf.conversion_statistics import FileStatistics
@@ -266,6 +268,11 @@ def convert(gvf_input, vcf_output, assembly, paths):
     assert os.path.isfile(assembly_file), f"Assembly file does not exist: {assembly_file}"
     assert os.path.isfile(gvf_input), f"GVF file does not exist {gvf_input}"
 
+    # sort gvf and reassign so gvf_input is sorted.
+    original_gvf_input = gvf_input
+    sorted_gvf_input = sort_gvf_file(gvf_input)
+    gvf_input = sorted_gvf_input
+
     # Creating lookup object to store important dictionaries and log what has been stored.
     reference_lookup = Lookup(assembly_file, paths)
     try:
@@ -322,8 +329,28 @@ def convert(gvf_input, vcf_output, assembly, paths):
     finally:
         reference_lookup.close()
 
-
 #helper functions for convert
+def sort_gvf_file(gvf_input):
+    """Sorts the GVF file and returns a sorted gvf file.
+    :params gvf_input: the unsorted file
+    :return sorted_gvf_input: the sorted file"""
+    logger.info("Sorting unsorted GVF input")
+    sorted_gvf_input = gvf_input + ".sorted.gvf"
+
+    sort_command = (
+        f'(grep "^#" \'{gvf_input}\'; '
+        f'grep -v "^#" \'{gvf_input}\' | sort -k1,1 -k4,4n) > \'{sorted_gvf_input}\''
+    )
+
+    try:
+        subprocess.run(sort_command, shell=True, check=True)
+        return sorted_gvf_input
+    except subprocess.CalledProcessError as e:
+        logger.error(f"System sort failed: {e}")
+        raise
+
+
+
 def stream_gvf_to_vcf_data(gvf_input, report, samples, vcf_builder, vcf_output):
     """Streams GVF rows to VCF
     :param gvf_input: GVF file
