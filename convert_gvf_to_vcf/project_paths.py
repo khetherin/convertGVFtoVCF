@@ -41,6 +41,7 @@ class ProjectPaths:
         else:
             target_path = assembly_input
         if "$" in target_path:
+            # to resolve ${REF_PATH} in config.yaml
             target_path = os.path.expandvars(target_path)
         # get full path
         if os.path.isabs(target_path):
