@@ -265,11 +265,20 @@ class TestGvfMetadataCoordinator(unittest.TestCase):
         date = "2014-04-01"
         gvf_files = [f"{study_name}.{date}.GRCh37.Remapped.gvf",
                      f"{study_name}.{date}.GRCh38.Remapped.gvf",
-                     f"{study_name}.{date}.GRCh37.Submitted.gvf"
+                     f"{study_name}.{date}.GRCh37.Submitted.gvf",
+                     f"{study_name}.{date}.GRCh37.Submitted.gvf.sorted.gvf",
+                     f"{study_name}.{date}.GRCh37.p13.Submitted.gvf",
+                     f"{study_name}.{date}.GRCh37.p13.Submitted.gvf.sorted.gvf",
+                     f"{study_name}.{date}.GRCh37.ABCDEFG.txt", # invalid
+
         ]
         study_1, date_1, assembly_1 = coordinator.parse_gvf_filename(gvf_files[0])
         study_2, date_2, assembly_2 = coordinator.parse_gvf_filename(gvf_files[1])
         study_3, date_3, assembly_3 = coordinator.parse_gvf_filename(gvf_files[2])
+        study_4, date_4, assembly_4 = coordinator.parse_gvf_filename(gvf_files[3])
+        study_5, date_5, assembly_5 = coordinator.parse_gvf_filename(gvf_files[4])
+        study_6, date_6, assembly_6 = coordinator.parse_gvf_filename(gvf_files[5])
+        study_7, date_7, assembly_7 = coordinator.parse_gvf_filename(gvf_files[6])
 
         self.assertEqual(study_1, study_name)
         self.assertEqual(date_1, date)
@@ -282,6 +291,22 @@ class TestGvfMetadataCoordinator(unittest.TestCase):
         self.assertEqual(study_3, study_name)
         self.assertEqual(date_3, date)
         self.assertEqual(assembly_3, "GRCh37")
+
+        self.assertEqual(study_4, study_name)
+        self.assertEqual(date_4, date)
+        self.assertEqual(assembly_4, "GRCh37")
+
+        self.assertEqual(study_5, study_name)
+        self.assertEqual(date_5, date)
+        self.assertEqual(assembly_5, "GRCh37.p13")
+
+        self.assertEqual(study_6, study_name)
+        self.assertEqual(date_6, date)
+        self.assertEqual(assembly_6, "GRCh37.p13")
+
+        self.assertEqual(study_7, None)
+        self.assertEqual(date_7, None)
+        self.assertEqual(assembly_7, None)
 
     def test_add_multiple_assemblies_into_metadata(self):
         coordinator = GvfMetadataCoordinator(MagicMock(), MagicMock(), MagicMock())
