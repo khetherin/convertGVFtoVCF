@@ -5,7 +5,7 @@ The purpose of this file is to populate for each field of a VCF line (and perfor
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
 
-from convert_gvf_to_vcf.assisting_converter import convert_gvf_attributes_to_vcf_values
+from convert_gvf_to_vcf.gvf_attributes_converter import GvfAttributeParser, GvfAttributeTransformer
 from dataclasses import dataclass
 from typing import Optional,Union
 
@@ -62,11 +62,18 @@ class VcfLineBuilder:
         :params gvf_feature_line_object: GVF feature line object to be converted
         :return VcfLine object
         """
-        # Attributes which store important key-values dicts
-        (vcf_value_from_gvf_attribute,  # used to populate the VCF fields. This is a dict of non-converted GVF attribute keys and their values.
-         vcf_values_for_info,  # a dict that stores INFO key-values to form VCF line. This includes converted GVF attribute keys (+ other SV INFO).
-         vcf_values_for_format  # a dict of FORMAT key-values for each sample to form VCF line
-         ) = convert_gvf_attributes_to_vcf_values(gvf_feature_line_object.attributes, self.reference_lookup.mapping_attribute_dict, self.field_lines_dictionary, self.all_possible_lines_dictionary)
+        gvf_parser = GvfAttributeParser(gvf_feature_line_object.attributes)
+
+        transformer = GvfAttributeTransformer(
+            mapping_attribute_dict=self.reference_lookup.mapping_attribute_dict,
+            field_lines_dictionary=self.field_lines_dictionary,
+            all_possible_lines_dictionary=self.all_possible_lines_dictionary
+        )
+
+        (vcf_value_from_gvf_attribute,
+         vcf_values_for_info,
+         vcf_values_for_format) = transformer.convert_gvf_attributes_to_vcf_values(gvf_parser)
+
 
         # Attributes which might form useful parts of INFO field in VCF lines (useful information from GVF)
         source = gvf_feature_line_object.source
