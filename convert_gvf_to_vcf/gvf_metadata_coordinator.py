@@ -253,13 +253,15 @@ class GvfMetadataCoordinator:
             return None, None, None
         # expect file_name = {estd1_Redon_et_al_2006}.{YYYY-MM-DD}.{Assembly}.{Submitted/Remapped}.gvf
         file_name = os.path.basename(gvf_file)
-        if not (file_name.endswith(".Submitted.gvf") or file_name.endswith(".Remapped.gvf")):
+        valid_gvf_endings = (".Submitted.gvf", ".Remapped.gvf",".Submitted.gvf.sorted.gvf", ".Remapped.gvf.sorted.gvf")
+        if not file_name.endswith(valid_gvf_endings):
             logger.warning(f"Warning: Skipping invalid GVF file name structure: {file_name}")
             return None, None, None
         # expect base_name = ['estd1_Redon_et_al_2006.2014-04-01.GRCh37', 'Remapped', 'gvf']
-        base_name = file_name.rsplit(".", 2)
-        # expect base_name[0] = {estd1_Redon_et_al_2006}.{YYYY-MM-DD}.{Assembly}
-        parts = base_name[0].split(".", 2) # maxsplit 2 to handle patched assemblies i.e. assembly can be GRCh37 or GRCh37.p13
+        file_ending = next((ext for ext in valid_gvf_endings if file_name.endswith(ext)), None)
+        base_name = file_name[:-len(file_ending)]
+        # expect base_name = {estd1_Redon_et_al_2006}.{YYYY-MM-DD}.{Assembly}
+        parts = base_name.split(".", 2) # maxsplit 2 to handle patched assemblies i.e. assembly can be GRCh37 or GRCh37.p13
         if len(parts) < 3:
             logger.warning(f"Warning: Skipping invalid GVF file name structure: {file_name}")
             return None, None, None
