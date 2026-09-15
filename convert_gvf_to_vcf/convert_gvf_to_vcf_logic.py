@@ -126,8 +126,12 @@ def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
                 list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(pragma_name.lstrip("#"), pragma_value))
         elif pragma_name == "#Study":
             study_tokens = get_pragma_tokens(pragma_value, ";", "=")
-            for s_token in study_tokens:
-                list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(s_token[0], s_token[1]))
+            for study_token in study_tokens:
+                try:
+                    list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(study_token[0], study_token[1]))
+                except IndexError:
+                    logger.error(f"IndexError for the following study_token: {study_token}\n"
+                                 f"From the pragma value: {pragma_value}")
         else:
             if vcf_header_key is not None:
                 list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(vcf_header_key, pragma_value))
