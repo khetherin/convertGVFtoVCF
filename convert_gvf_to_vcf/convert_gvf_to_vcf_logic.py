@@ -1,8 +1,10 @@
 import argparse
 import os
 import subprocess
+import sys
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
+from numpy.f2py.auxfuncs import l_not
 
 from convert_gvf_to_vcf.conversion_statistics import FileStatistics
 from convert_gvf_to_vcf.gather_metadata import  gather_metadata_workflow, eva_update_metadata_with_vcf
@@ -382,7 +384,17 @@ def sort_gvf_file(gvf_input, sorted_gvf_dir):
         logger.error(f"Sorting GVF file failed: {e}")
         raise
 
-
+def _log_memory_used_processing_gvf(gvf_lines_read, vcf_line_buffer, interval=50000):
+    """Log GVF lines processed, number of bcf lines in memory, and memory buffer.
+    :param gvf_lines_read: number of gvf lines that have been read
+    :param vcf_line_buffer: the list stored and will be flushed out and written the to VCF file
+    :param interval: log every x lines
+    """
+    if gvf_lines_read % interval == 0:
+        buffer_size = sys.getsizeof(vcf_line_buffer) # measured in bytes
+        logger.info(f"[MEMORY LOG] Processed {gvf_lines_read} GVF lines | "
+                    f"Current Memory buffer: {len(vcf_line_buffer)} VCF lines |"
+                    f"Memory used by buffer: {buffer_size}")
 
 def stream_gvf_to_vcf_data(gvf_reader, report, samples, vcf_builder, vcf_output):
     """Streams GVF rows to VCF
@@ -395,6 +407,7 @@ def stream_gvf_to_vcf_data(gvf_reader, report, samples, vcf_builder, vcf_output)
     """
     is_missing_format_value = True
     vcf_data_file = vcf_output + '_data_lines'
+    line_processed_counter = 0
     with open(vcf_data_file, "w") as open_data_lines:
         logger.info("Generating the VCF datalines")
         chrom_vcf_lines = []
@@ -418,6 +431,9 @@ def stream_gvf_to_vcf_data(gvf_reader, report, samples, vcf_builder, vcf_output)
                 chrom_vcf_lines = []
             current_chrom = current_vcf_line.chrom
             chrom_vcf_lines.append(current_vcf_line)
+            # logging memory
+            line_processed_counter += 1
+            _log_memory_used_processing_gvf(line_processed_counter, chrom_vcf_lines)
         # Sort then flush the final chromosome vcf_lines
         if chrom_vcf_lines:
             chrom_vcf_lines.sort(key=lambda x: int(x.pos))
