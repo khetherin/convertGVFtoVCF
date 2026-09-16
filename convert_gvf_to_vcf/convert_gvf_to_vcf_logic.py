@@ -2,9 +2,9 @@ import argparse
 import os
 import subprocess
 import sys
+import tracemalloc
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
-from numpy.f2py.auxfuncs import l_not
 
 from convert_gvf_to_vcf.conversion_statistics import FileStatistics
 from convert_gvf_to_vcf.gather_metadata import  gather_metadata_workflow, eva_update_metadata_with_vcf
@@ -384,7 +384,7 @@ def sort_gvf_file(gvf_input, sorted_gvf_dir):
         logger.error(f"Sorting GVF file failed: {e}")
         raise
 
-def _log_memory_used_processing_gvf(gvf_lines_read, vcf_line_buffer, interval=50000):
+def _log_memory_used_processing_gvf(gvf_lines_read, vcf_line_buffer, interval=100000):
     """Log GVF lines processed, number of bcf lines in memory, and memory buffer.
     :param gvf_lines_read: number of gvf lines that have been read
     :param vcf_line_buffer: the list stored and will be flushed out and written the to VCF file
@@ -396,6 +396,17 @@ def _log_memory_used_processing_gvf(gvf_lines_read, vcf_line_buffer, interval=50
                     f"Current Memory buffer: {len(vcf_line_buffer)} VCF lines |"
                     f"Memory used by buffer: {buffer_size}")
 
+def _log_top_three_memory_allocations():
+    """Lists the top 3 code lines responsible for memory usage.
+    """
+    snapshot = tracemalloc.take_snapshot()
+    top_stats = snapshot.statistics('lineno')
+
+    logger.info("[MEMORY DIAGNOSTIC] TOP 3 CODE LINES")
+    for index, stat in enumerate(top_stats[:3], 1):
+        logger.info(f"#{index}: {stat}")
+    tracemalloc.stop()
+
 def stream_gvf_to_vcf_data(gvf_reader, report, samples, vcf_builder, vcf_output):
     """Streams GVF rows to VCF
     :param gvf_reader: GvfFileReader instance
@@ -405,6 +416,7 @@ def stream_gvf_to_vcf_data(gvf_reader, report, samples, vcf_builder, vcf_output)
     :param vcf_output: file path for vcf_output
     :return is_missing_format_value, vcf_data_file: boolean, file path
     """
+    tracemalloc.start()
     is_missing_format_value = True
     vcf_data_file = vcf_output + '_data_lines'
     line_processed_counter = 0
@@ -440,6 +452,8 @@ def stream_gvf_to_vcf_data(gvf_reader, report, samples, vcf_builder, vcf_output)
             flush_chrom_vcf_lines(chrom_vcf_lines, open_data_lines, samples, report)
         if not has_any_features:
             logger.warning("No feature lines were found for this GVF file.")
+    # list top 3 lines of code for memory usage for diagnostic purposes
+    _log_top_three_memory_allocations()
     return is_missing_format_value, vcf_data_file
 
 
