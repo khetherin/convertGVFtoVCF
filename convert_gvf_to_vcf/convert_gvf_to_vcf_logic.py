@@ -385,9 +385,9 @@ def sort_gvf_file(gvf_input, sorted_gvf_dir):
         raise
 
 def _log_memory_used_processing_gvf(gvf_lines_read, vcf_line_buffer, interval=100000):
-    """Log GVF lines processed, number of bcf lines in memory, and memory buffer.
+    """Log GVF lines processed, number of vcf lines in memory, and memory buffer.
     :param gvf_lines_read: number of gvf lines that have been read
-    :param vcf_line_buffer: the list stored and will be flushed out and written the to VCF file
+    :param vcf_line_buffer: the list stored and will be flushed out and written to the VCF file
     :param interval: log every x lines
     """
     if gvf_lines_read % interval == 0:
