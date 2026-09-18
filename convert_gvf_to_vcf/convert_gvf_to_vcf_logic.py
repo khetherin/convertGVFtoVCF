@@ -1,4 +1,5 @@
 import argparse
+import html
 import os
 import subprocess
 
@@ -100,6 +101,23 @@ def convert_gvf_pragmas_to_vcf_header(list_of_gvf_pragmas_to_convert,
         list_of_converted_pragmas.append(generate_vcf_header_unstructured_line(vcf_header_key, pragma_value))
     return list_of_converted_pragmas
 
+def clean_pragma_value(unclean_pragma_value):
+    """Cleans pragma values so they can be parsed accurately.
+    :param unclean_pragma_value - raw pragma value
+    :return clean_pragma_input - clean value for input
+    """
+    # fix encoding for 5' and 3'
+    partially_unclean_pragma_value = unclean_pragma_value.replace("â", "'")
+    # unescape html
+    clean_pragma = html.unescape(partially_unclean_pragma_value, )
+    # replace with a temporary unique delimiter
+    safe_pragma = clean_pragma.replace(";Description=", "|||Description=")
+    # replace semicolon in text with a comma
+    safe_pragma = safe_pragma.replace(";", ",")
+    # restore the delimiter
+    clean_pragma_input = safe_pragma.replace("|||Description=", ";Description=")
+    return clean_pragma_input
+
 def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
                                              list_of_gvf_pragma_comments,
                                              pragma_to_vcf_map):
@@ -125,7 +143,8 @@ def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
             else:
                 list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(pragma_name.lstrip("#"), pragma_value))
         elif pragma_name == "#Study":
-            study_tokens = get_pragma_tokens(pragma_value, ";", "=")
+            clean_pragma = clean_pragma_value(pragma_value)
+            study_tokens = get_pragma_tokens(clean_pragma, ";", "=")
             for study_token in study_tokens:
                 try:
                     list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(study_token[0], study_token[1]))

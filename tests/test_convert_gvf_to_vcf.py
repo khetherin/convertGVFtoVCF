@@ -8,7 +8,7 @@ from convert_gvf_to_vcf.convert_gvf_to_vcf_logic import generate_vcf_header_unst
     get_pragma_tokens, \
     get_sample_name_from_pragma, get_unique_sample_names, convert_gvf_pragmas_to_vcf_header, \
     convert_gvf_pragma_comment_to_vcf_header, generate_vcf_header_structured_lines, convert, sort_gvf_file, \
-    create_sorted_gvf_directory
+    create_sorted_gvf_directory, clean_pragma_value
 from convert_gvf_to_vcf.project_paths import ProjectPaths
 
 
@@ -74,6 +74,36 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         assert isinstance(list_of_converted_pragmas, list)
         expected_list = ['##gff-version=3', '##gvf-version=1.06', '##species=http://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=7955', '##fileDate=2015-07-15', '##genome-build=NCBIGRCz10']
         assert list_of_converted_pragmas == expected_list
+
+    def test_clean_pragma_value(self):
+        # additional semi-colon
+        unclean_pragma_lineA = "First_author=A. Person;Description=Human genome assembly NCBI34; current human genome assembly, GRCh37."
+        # html entity &lt;
+        unclean_pragma_lineB = "First_author=Name Surname;Description=CNV calls with &lt;50% concordance. Reproducibility in replicate experiments is &lt;70% for most platforms."
+        # html entity &gt;
+        unclean_pragma_lineC = "First_author=Name Surname;Description=We analyzed 24 liver cyst samples from 23 patients using high resolution microarray (homozygosity of autosomes (&gt;3.0Mb) large CNVs (&gt;1.0Mb))."
+        # html entity &gt; and additional semi-colon
+        unclean_pragma_lineD = "First_author=Name Surname;Description=Multi-copy CNPs do not (40% with r &gt;0.8). We selected a subset of CNPs from 62 populations;human diversity and selection."
+        # 5â-TTTT/A-3â  and additional semi-colon
+        unclean_pragma_lineE = "First_author=Name Surname;Description=TSIPs can be grouped into two classes; insertion at a 5â-TTTT/A-3â sequence."
+        # expected lines
+        expected_clean_pragma_lineA = "First_author=A. Person;Description=Human genome assembly NCBI34, current human genome assembly, GRCh37."
+        expected_clean_pragma_lineB = "First_author=Name Surname;Description=CNV calls with <50% concordance. Reproducibility in replicate experiments is <70% for most platforms."
+        expected_clean_pragma_lineC = "First_author=Name Surname;Description=We analyzed 24 liver cyst samples from 23 patients using high resolution microarray (homozygosity of autosomes (>3.0Mb) large CNVs (>1.0Mb))."
+        expected_clean_pragma_lineD = "First_author=Name Surname;Description=Multi-copy CNPs do not (40% with r >0.8). We selected a subset of CNPs from 62 populations,human diversity and selection."
+        expected_clean_pragma_lineE = "First_author=Name Surname;Description=TSIPs can be grouped into two classes, insertion at a 5'-TTTT/A-3' sequence."
+        # output
+        clean_pragma_lineA = clean_pragma_value(unclean_pragma_lineA)
+        clean_pragma_lineB = clean_pragma_value(unclean_pragma_lineB)
+        clean_pragma_lineC = clean_pragma_value(unclean_pragma_lineC)
+        clean_pragma_lineD = clean_pragma_value(unclean_pragma_lineD)
+        clean_pragma_lineE = clean_pragma_value(unclean_pragma_lineE)
+        ############
+        assert clean_pragma_lineA == expected_clean_pragma_lineA
+        assert clean_pragma_lineB == expected_clean_pragma_lineB
+        assert clean_pragma_lineC == expected_clean_pragma_lineC
+        assert clean_pragma_lineD == expected_clean_pragma_lineD
+        assert clean_pragma_lineE == expected_clean_pragma_lineE
 
     def test_convert_gvf_pragma_comment_to_vcf_header(self):
         gvf_pragma_comments_to_convert = ['#Study_accession: nstd62', '#Study_type: Control Set', '#Display_name: Brown_et_al_2012', '#Publication: PMID=22203992;Journal=Proceedings of the National Academy of Sciences of the United States of America;Paper_title=Extensive genetic diversity and substructuring among zebrafish strains revealed through copy number variant analysis.;Publication_year=2012', '#Study: First_author=Kim Brown;Description=Comparative genomic hybridization analysis of 3 laboratory and one wild zebrafish populations for Copy Number Variants', '#Assembly_name: GRCz10', '#subject: subject_name=Wilds2-3', '#subject: subject_name=Zon9', '#subject: subject_name=JenMale7;subject_sex=Male', '#subject: subject_name=JenMale6;subject_sex=Male', '#sample: sample_name=JenMale6;subject_name=JenMale6', '#sample: sample_name=Wilds2-3;subject_name=Wilds2-3', '#sample: sample_name=Zon9;subject_name=Zon9', '#sample: sample_name=JenMale7;subject_name=JenMale7', '#testing_unknown_pragma']
