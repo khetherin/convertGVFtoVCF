@@ -8,17 +8,16 @@ process RENAME_CONTIGS {
 
     output:
     path "${assembly_accession}.fa", emit: renamed_fasta
-    path "*_assembly_report.txt", emit: safe_report
+    path "${assembly_accession}_assembly_report.txt", emit: safe_report
     script:
-    def accession    = assembly_accession
-    def output_fasta = "${accession}.fa"
+    def output_fasta = "${assembly_accession}.fa"
 
     """
     export PYTHONPATH="${params.executable.eva_submission.script_path}"
     export REF_PATH="${params.REF_PATH}"
     ${params.executable.eva_submission.interpreter} -m eva_submission.steps.rename_contigs_from_insdc_in_assembly \\
         --get_contig_from_vcf data \\
-        --assembly_accession "${accession}" \\
+        --assembly_accession "${assembly_accession}" \\
         --custom_fasta "${output_fasta}" \\
         --assembly_fasta "${assembly_fasta}" \\
         --assembly_report "${assembly_report}" \\

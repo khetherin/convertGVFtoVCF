@@ -10,7 +10,6 @@ include { SUBMIT_TO_EVA } from './modules/SUBMIT_TO_EVA.nf'
 
 workflow {
 
-    def config_file = file(params.tool_config, checkIfExists: true)
     log.info """
         =======================================================
         ConvertGVFtoVCF Nextflow Pipeline Startup
@@ -21,16 +20,15 @@ workflow {
         Output Directory  : ${params.output_dir}
         =======================================================
     """
-    // Step 1: SET UP AND PRE-FLIGHT CHECKS AND GET CREDENTIALS AHEAD OF TIME
+    // Step 1: SET UP CHANNELS
+    //VALUE CHANNELS - static
     input_dir_ch     = Channel.value(file(params.input_dir, type: 'dir', checkIfExists: true))
-    config_file_ch   = Channel.value(config_file)
-
+    config_file_ch   = Channel.value(file(params.tool_config, checkIfExists: true))
     credentials_ch = PARSE_CREDENTIALS(config_file_ch)
-
     finder_script_ch = Channel.value(file("${params.executable.convert_gvf.script_path}/gvf_file_finder.py", checkIfExists: true))
-    
-    // Step 2: FIND PATHS
+    // QUEUE CHANNELS - dynamic and trigger a new parallel task down stream
     gvf_files_ch   = Channel.fromPath("${params.input_dir}/**/*.gvf")
+    // Step 2: for each GVF file prints the following to the work dir: assembly_name, fasta, report, genbank_accession
     GET_ASSEMBLY_PATHS(gvf_files_ch)
 
     assembly_ch = GET_ASSEMBLY_PATHS.out.map { gvf, assembly_file, fasta_file, report_file, accession_file ->
@@ -40,7 +38,7 @@ workflow {
         def match = (fasta_str =~ /\/([^\/]+)\/[^\/]+\/[^\/]+\.[a-zA-Z0-9]+$/)
         def species_name = match.find() ? match[0][1] : "unknown_species"
 
-
+        // KEY: this is the gvf and its assembly, fa, assembly report and genbank_accession
         return tuple(
             gvf, 
             assembly_file.text.trim(), 
