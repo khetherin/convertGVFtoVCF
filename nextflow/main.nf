@@ -49,9 +49,9 @@ workflow {
         )
     }
     // Step 3 : ENSURE CONSISTENT CHROMOSOME NAMING CONVENTION FOR THE ASSEMBLY
-    /*
-    RENAME_CONTIGS(assembly_ch)
 
+    RENAME_CONTIGS(assembly_ch)
+    /*
     // Step 4 : CONVERT GVF TO VCF
     study_accession_ch = params.study_accession ? Channel.value(params.study_accession) : gvf_files_ch.map { file -> file.name.tokenize('_')[0] }.unique()
 
