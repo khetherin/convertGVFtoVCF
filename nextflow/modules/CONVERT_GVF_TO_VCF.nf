@@ -9,7 +9,7 @@ process CONVERT_GVF_TO_VCF {
     path config_file                    // TEST.config
     path finder_script
     val credentials
-    path 'renamed_fasta*'
+    //path 'renamed_fasta*'
     output:
     val "conversion_done", emit: status_trigger
     

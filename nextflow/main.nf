@@ -61,8 +61,9 @@ workflow {
         input_dir_ch,
         config_file_ch,
         finder_script_ch,
-        credentials_ch,
-        RENAME_CONTIGS.out.renamed_fasta.collect()
+        credentials_ch
+        //,
+        //RENAME_CONTIGS.out.renamed_fasta.collect()
     )
     /*
     // Step 5: Validate submission
