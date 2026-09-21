@@ -52,7 +52,7 @@ workflow {
     // RENAME_CONTIGS creates in the work dir: fasta and assembly report
     // then it copies those files (fasta and assembly report) to the output/clean_reference_sequences/species/genbank_accession
     RENAME_CONTIGS(assembly_ch)
-    /*
+
     // Step 4 : CONVERT GVF TO VCF
     study_accession_ch = params.study_accession ? Channel.value(params.study_accession) : gvf_files_ch.map { file -> file.name.tokenize('_')[0] }.unique()
 
@@ -64,6 +64,7 @@ workflow {
         credentials_ch,
         RENAME_CONTIGS.out.renamed_fasta.collect()
     )
+    /*
     // Step 5: Validate submission
     study_names_ch = CONVERT_GVF_TO_VCF.out.status_trigger
         .flatMap { token ->
