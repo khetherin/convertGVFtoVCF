@@ -27,7 +27,7 @@ workflow {
     credentials_ch = PARSE_CREDENTIALS(config_file_ch)
     finder_script_ch = Channel.value(file("${params.executable.convert_gvf.script_path}/gvf_file_finder.py", checkIfExists: true))
     // QUEUE CHANNELS - dynamic and trigger a new parallel task down stream
-    gvf_files_ch   = Channel.fromPath("${params.input_dir}/**/*.gvf")
+    gvf_files_ch   = Channel.fromPath("${params.input_dir}/*/gvf/*.gvf")
     // Step 2: for each GVF file prints the following to the work dir: assembly_name, fasta, report, genbank_accession
     GET_ASSEMBLY_PATHS(gvf_files_ch)
 
@@ -40,24 +40,25 @@ workflow {
 
         // KEY: this is the gvf and its assembly, fa, assembly report and genbank_accession
         return tuple(
-            gvf, 
-            assembly_file.text.trim(), 
-            fasta_str, 
-            report_file.text.trim(), 
+            gvf,
+            assembly_file.text.trim(),
+            fasta_str,
+            report_file.text.trim(),
             accession_str,
             species_name
         )
     }
     // Step 3 : ENSURE CONSISTENT CHROMOSOME NAMING CONVENTION FOR THE ASSEMBLY
+    /*
     RENAME_CONTIGS(assembly_ch)
 
     // Step 4 : CONVERT GVF TO VCF
     study_accession_ch = params.study_accession ? Channel.value(params.study_accession) : gvf_files_ch.map { file -> file.name.tokenize('_')[0] }.unique()
 
     CONVERT_GVF_TO_VCF(
-        study_accession_ch, 
-        input_dir_ch, 
-        config_file_ch, 
+        study_accession_ch,
+        input_dir_ch,
+        config_file_ch,
         finder_script_ch,
         credentials_ch,
         RENAME_CONTIGS.out.renamed_fasta.collect()
@@ -76,7 +77,7 @@ workflow {
         study_accessions_ch,
         CONVERT_GVF_TO_VCF.out.status_trigger
     )
-    // Step 6: Submit submission to EVA 
+    // Step 6: Submit submission to EVA
     successful_logs_ch = VALIDATE_SUBMISSION.out.validation_log
         .filter { log_file ->
             log_file.readLines().any { line -> line.contains("Validation result: SUCCESS") }
@@ -88,4 +89,5 @@ workflow {
         json: file("${params.output_dir}/submission/${log_file.parent.name}/eva_submission_*.json")
     }
     SUBMIT_TO_EVA(successful_logs_ch, PARSE_CREDENTIALS.out.credentials, submit_inputs.dir, submit_inputs.json)
+    */
 }
