@@ -7,10 +7,10 @@ process RENAME_CONTIGS {
     tuple path(gvf_file), val(assembly_name), val(assembly_fasta), val(assembly_report), val(assembly_accession), val(species)
 
     output:
-    path "${assembly_accession}.fa", emit: renamed_fasta
-    path "${assembly_accession}_assembly_report.txt", emit: safe_report
+    path "${assembly_accession}_${gvf_file.simpleName}.fa", emit: renamed_fasta
+    path "${assembly_accession}_${gvf_file.simpleName}_assembly_report.txt", emit: safe_report
     script:
-    def output_fasta = "${assembly_accession}.fa"
+    def output_fasta = "${assembly_accession}_${gvf_file.simpleName}.fa"
 
     """
     export PYTHONPATH="${params.executable.eva_submission.script_path}"
@@ -22,6 +22,6 @@ process RENAME_CONTIGS {
         --assembly_fasta "${assembly_fasta}" \\
         --assembly_report "${assembly_report}" \\
         --vcf_files "${gvf_file}"
-    cp "${assembly_report}" "${assembly_accession}_assembly_report.txt"
+    cp "${assembly_report}" "${assembly_accession}_${gvf_file.simpleName}_assembly_report.txt"
     """
 }

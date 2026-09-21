@@ -49,7 +49,8 @@ workflow {
         )
     }
     // Step 3 : ENSURE CONSISTENT CHROMOSOME NAMING CONVENTION FOR THE ASSEMBLY
-
+    // RENAME_CONTIGS creates in the work dir: fasta and assembly report
+    // then it copies those files (fasta and assembly report) to the output/clean_reference_sequences/species/genbank_accession
     RENAME_CONTIGS(assembly_ch)
     /*
     // Step 4 : CONVERT GVF TO VCF
