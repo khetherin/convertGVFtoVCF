@@ -1,19 +1,21 @@
 process CONVERT_GVF_TO_VCF {
-    tag {"Finding and converting GVF files for: ${study_accession}"}
+    tag {"Finding and converting GVF files for: ${gvf_simple_name.split('_')[0]}"}
     
     publishDir "${params.output_dir}", mode: 'copy' // copy to output directory
 
     input:
-    val study_accession                 // can be study_accession string or null
     path input_dir                      // data directory
     path config_file                    // TEST.config
-    path finder_script
-    val credentials
+    path finder_script                  // path to gvf_file_finder.py
+    val credentials                     // parsed credentials
+    // e.g. homo_sapiens, GCA_000001405.1, estd1_Surname_et_al_2006, renamed_assembly(wrt GVF chromosome naming convention)
     tuple val(species), val(assembly_accession), val(gvf_simple_name), path(renamed_fasta)
     output:
-    val "conversion_done", emit: status_trigger
+    //study_accession, study_name, conversion_done
+    tuple val({gvf_simple_name.split('_')[0]}), val(gvf_simple_name), val("conversion_done"), emit: status_trigger
     
     script:
+    def study_accession = gvf_simple_name.split('_')[0]
     """
     export REF_PATH="${params.clean_assembly_dir}/${gvf_simple_name}"
     

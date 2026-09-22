@@ -4,9 +4,7 @@ process VALIDATE_SUBMISSION {
     publishDir { "${params.output_dir}/validation_reports/${input_study_name}" }, mode: 'copy'
 
     input:
-    val input_study_name
-    val study_accession
-    val trigger_token 
+    tuple val(study_accession), val(input_study_name), val(trigger_token)
 
     output:
     path "**/*.json", emit: validation_manifests, optional: true

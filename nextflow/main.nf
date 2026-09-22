@@ -54,31 +54,19 @@ workflow {
     RENAME_CONTIGS(assembly_ch)
 
     // Step 4 : CONVERT GVF TO VCF
-    study_accession_ch = params.study_accession ? Channel.value(params.study_accession) : gvf_files_ch.map { file -> file.name.tokenize('_')[0] }.unique()
-
     CONVERT_GVF_TO_VCF(
-        study_accession_ch,
         input_dir_ch,
         config_file_ch,
         finder_script_ch,
         credentials_ch,
         RENAME_CONTIGS.out.ready_to_convert
     )
-    /*
+
     // Step 5: Validate submission
-    study_names_ch = CONVERT_GVF_TO_VCF.out.status_trigger
-        .flatMap { token ->
-            def pattern = params.study_accession ? "${params.output_dir}/submission/${params.study_accession}*" : "${params.output_dir}/submission/{e,n}std[0-9]*_*"
-            return file(pattern, type: 'dir').collect { it.name }
-        }
-
-    study_accessions_ch = study_names_ch.map { name -> name.split('_')[0] }
-
     VALIDATE_SUBMISSION(
-        study_names_ch,
-        study_accessions_ch,
         CONVERT_GVF_TO_VCF.out.status_trigger
     )
+    /*
     // Step 6: Submit submission to EVA
     successful_logs_ch = VALIDATE_SUBMISSION.out.validation_log
         .filter { log_file ->
