@@ -1,16 +1,15 @@
 process RENAME_CONTIGS {
     tag "Renaming contigs for ${assembly_accession}"
     
-    publishDir { "${params.clean_assembly_dir}/${species}/${assembly_accession}" }, mode: 'copy'
- 
+    publishDir "${params.clean_assembly_dir}/${species}/${assembly_accession}/${gvf_file.simpleName}", mode: 'symlink'
     input:
     tuple path(gvf_file), val(assembly_name), val(assembly_fasta), val(assembly_report), val(assembly_accession), val(species)
 
     output:
-    path "${assembly_accession}_${gvf_file.simpleName}.fa", emit: renamed_fasta
-    path "${assembly_accession}_${gvf_file.simpleName}_assembly_report.txt", emit: safe_report
+    tuple val(species), val(assembly_accession), val(gvf_file.simpleName), path("${assembly_accession}.fa"), emit: ready_to_convert
+    path "${assembly_accession}_assembly_report.txt", emit: safe_report
     script:
-    def output_fasta = "${assembly_accession}_${gvf_file.simpleName}.fa"
+    def output_fasta = "${assembly_accession}.fa"
 
     """
     export PYTHONPATH="${params.executable.eva_submission.script_path}"
@@ -22,6 +21,6 @@ process RENAME_CONTIGS {
         --assembly_fasta "${assembly_fasta}" \\
         --assembly_report "${assembly_report}" \\
         --vcf_files "${gvf_file}"
-    cp "${assembly_report}" "${assembly_accession}_${gvf_file.simpleName}_assembly_report.txt"
+    cp "${assembly_report}" "${assembly_accession}_assembly_report.txt"
     """
 }
