@@ -66,7 +66,7 @@ workflow {
     VALIDATE_SUBMISSION(
         CONVERT_GVF_TO_VCF.out.status_trigger
     )
-    /*
+
     // Step 6: Submit submission to EVA
     successful_logs_ch = VALIDATE_SUBMISSION.out.validation_log
         .filter { log_file ->
@@ -79,5 +79,5 @@ workflow {
         json: file("${params.output_dir}/submission/${log_file.parent.name}/eva_submission_*.json")
     }
     SUBMIT_TO_EVA(successful_logs_ch, PARSE_CREDENTIALS.out.credentials, submit_inputs.dir, submit_inputs.json)
-    */
+
 }
