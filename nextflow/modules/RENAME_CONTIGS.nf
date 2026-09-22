@@ -1,7 +1,7 @@
 process RENAME_CONTIGS {
     tag "Renaming contigs for ${assembly_accession}"
     
-    publishDir "${params.clean_assembly_dir}/${species}/${assembly_accession}/${gvf_file.simpleName}", mode: 'symlink'
+    publishDir "${params.clean_assembly_dir}/${gvf_file.simpleName}/${species}/${assembly_accession}", mode: 'symlink'
     input:
     tuple path(gvf_file), val(assembly_name), val(assembly_fasta), val(assembly_report), val(assembly_accession), val(species)
 
