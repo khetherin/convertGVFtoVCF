@@ -9,13 +9,13 @@ process CONVERT_GVF_TO_VCF {
     path config_file                    // TEST.config
     path finder_script
     val credentials
-    //path 'renamed_fasta*'
+    tuple val(species), val(assembly_accession), val(gvf_simple_name), path(renamed_fasta)
     output:
     val "conversion_done", emit: status_trigger
     
     script:
     """
-    export REF_PATH="${params.clean_assembly_dir}"
+    export REF_PATH="${params.clean_assembly_dir}/${gvf_simple_name}"
     
     ${params.executable.convert_gvf.interpreter} ${finder_script} \\
         --search_dir ${input_dir} \\
