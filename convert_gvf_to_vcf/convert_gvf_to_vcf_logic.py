@@ -1,6 +1,7 @@
 import argparse
 import html
 import os
+import re
 import subprocess
 
 from ebi_eva_common_pyutils.logger import logging_config as log_cfg
@@ -138,8 +139,12 @@ def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
         if pragma_name.startswith("#Publication"):
             if ";" in pragma_value:
                 publication_tokens = get_pragma_tokens(pragma_value, ";", "=")
-                for pub_token in publication_tokens:
-                    list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(pub_token[0], pub_token[1]))
+                for publication_token in publication_tokens:
+                    try:
+                        list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(publication_token[0], publication_token[1]))
+                    except IndexError:
+                        logger.error(f"IndexError for the following publication_token: {publication_token}\n"
+                                     f"From the pragma value: {pragma_value}")
             else:
                 list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(pragma_name.lstrip("#"), pragma_value))
         elif pragma_name == "#Study":
@@ -257,7 +262,11 @@ def get_pragma_tokens(pragma_value, first_delimiter, second_delimiter):
     :param second_delimiter: second separtor
     :return pragma_tokens
     """
-    initial_list = pragma_value.split(first_delimiter)
+    # only split if the first_delimiter is followed by a key name and a second delimiter
+    # intended for publication titles that contain the delimiter ";" e.g. t(4;8)(p16;p23) translocation
+    split_rule = f"{first_delimiter}(?=\w+{second_delimiter})"
+    initial_list = re.split(split_rule, pragma_value)
+
     pragma_tokens = []
     for element in initial_list:
         pragma_tokens.append(element.split(second_delimiter))
