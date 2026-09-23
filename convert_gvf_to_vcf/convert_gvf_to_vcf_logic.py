@@ -136,6 +136,23 @@ def clean_pragma_value(unclean_pragma_value):
     clean_pragma_input = replace_additional_semicolons(clean_pragma)
     return clean_pragma_input
 
+def parse_pragma_value(pragma_value):
+    """Cleans and parses value of pragma comments and outputs a list of converted comments
+    :params pragma_value: to be parsed
+    :returns converted_comments: list of converted pragma comments
+    """
+    converted_comments = []
+    clean_pragma = clean_pragma_value(pragma_value)
+    tokens = get_pragma_tokens(clean_pragma, ";", "=")
+    for token in tokens:
+        try:
+            converted_comments.append(
+                generate_vcf_header_unstructured_line(token[0], token[1]))
+        except IndexError:
+            logger.error(f"IndexError for the following token: {token}\n"
+                         f"From the pragma value: {pragma_value}")
+    return converted_comments
+
 def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
                                              list_of_gvf_pragma_comments,
                                              pragma_to_vcf_map):
@@ -143,10 +160,8 @@ def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
     Format of pragma comment = These tend to start with '#'. These comments are relevant to DGVa delimiter is ": "
     Function of pragma comment = These are non-essential and tend to be ignored by GVF processors. They can contain useful additional info.
     :param: gvf_pragma_comments_to_convert: pragma comments to be converted
-    :param: list_of_converted_pragma_comments: will append results to this list
     :param: list_of_gvf_pragma_comments : reference list
     :param: pragma_to_vcf_map: a mapping dict of GVF pragmas and their VCF counterpart
-    :param: sample_names_from_pragma_comments: will append results to this list
     return: list_of_converted_pragma_comments, sample_names_from_pragma_comments
     """
     list_of_converted_pragma_comments = []
@@ -155,25 +170,11 @@ def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
         vcf_header_key, pragma_name, pragma_value = get_pragma_name_and_value(gvf_pragma_comment, ": ", list_of_gvf_pragma_comments, pragma_to_vcf_map)
         if pragma_name.startswith("#Publication"):
             if ";" in pragma_value:
-                clean_pragma = clean_pragma_value(pragma_value)
-                publication_tokens = get_pragma_tokens(clean_pragma, ";", "=")
-                for publication_token in publication_tokens:
-                    try:
-                        list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(publication_token[0], publication_token[1]))
-                    except IndexError:
-                        logger.error(f"IndexError for the following publication_token: {publication_token}\n"
-                                     f"From the pragma value: {pragma_value}")
+                list_of_converted_pragma_comments.extend(parse_pragma_value(pragma_value))
             else:
                 list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(pragma_name.lstrip("#"), pragma_value))
         elif pragma_name == "#Study":
-            clean_pragma = clean_pragma_value(pragma_value)
-            study_tokens = get_pragma_tokens(clean_pragma, ";", "=")
-            for study_token in study_tokens:
-                try:
-                    list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(study_token[0], study_token[1]))
-                except IndexError:
-                    logger.error(f"IndexError for the following study_token: {study_token}\n"
-                                 f"From the pragma value: {pragma_value}")
+            list_of_converted_pragma_comments.extend(parse_pragma_value(pragma_value))
         else:
             if vcf_header_key is not None:
                 list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(vcf_header_key, pragma_value))
@@ -182,7 +183,6 @@ def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
         if sample_name is not None:
             sample_names_from_pragma_comments.append(sample_name)
     return list_of_converted_pragma_comments, sample_names_from_pragma_comments
-
 
 def convert_gvf_pragmas_for_vcf_header(gvf_pragmas,
                                        gvf_pragma_comments,
