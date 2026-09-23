@@ -111,7 +111,7 @@ def clean_pragma_value(unclean_pragma_value):
     partially_unclean_pragma_value = unclean_pragma_value.replace("â", "'")
     # unescape html
     clean_pragma = html.unescape(partially_unclean_pragma_value, )
-    # replace with a temporary unique delimiter
+    # replace with a temporary unique delimiter - for study pragmas
     safe_pragma = clean_pragma.replace(";Description=", "|||Description=")
     # replace semicolon in text with a comma
     safe_pragma = safe_pragma.replace(";", ",")
@@ -138,7 +138,8 @@ def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,
         vcf_header_key, pragma_name, pragma_value = get_pragma_name_and_value(gvf_pragma_comment, ": ", list_of_gvf_pragma_comments, pragma_to_vcf_map)
         if pragma_name.startswith("#Publication"):
             if ";" in pragma_value:
-                publication_tokens = get_pragma_tokens(pragma_value, ";", "=")
+                clean_pragma = clean_pragma_value(pragma_value)
+                publication_tokens = get_pragma_tokens(clean_pragma, ";", "=")
                 for publication_token in publication_tokens:
                     try:
                         list_of_converted_pragma_comments.append(generate_vcf_header_unstructured_line(publication_token[0], publication_token[1]))
