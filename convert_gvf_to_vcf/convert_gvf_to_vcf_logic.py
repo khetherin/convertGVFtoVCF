@@ -102,6 +102,27 @@ def convert_gvf_pragmas_to_vcf_header(list_of_gvf_pragmas_to_convert,
         list_of_converted_pragmas.append(generate_vcf_header_unstructured_line(vcf_header_key, pragma_value))
     return list_of_converted_pragmas
 
+
+def replace_additional_semicolons(pragma):
+    """Replace additional semicolon if it will affect parsing
+    :params pragma: to be cleaned
+    :return clean_pragma
+    """
+    allowed_pragma_keys = [
+        "First_author",
+        "Description",
+        "PMID",
+        "Journal",
+        "Paper_title",
+        "Publication_year"
+    ]
+    pragma_keys = "|".join(allowed_pragma_keys)
+    # find the additional semi-colon (i.e NOT before the keys above) but also ignore genetic notation t(4;8)(p16;p23)
+    re_pattern = f";(?!(?:{pragma_keys})=|[\w\d.]+?\))"
+    # substitute semi-colon with a comma
+    clean_pragma = re.sub(re_pattern, ",", pragma)
+    return clean_pragma
+
 def clean_pragma_value(unclean_pragma_value):
     """Cleans pragma values so they can be parsed accurately.
     :param unclean_pragma_value - raw pragma value
@@ -111,12 +132,8 @@ def clean_pragma_value(unclean_pragma_value):
     partially_unclean_pragma_value = unclean_pragma_value.replace("â", "'")
     # unescape html
     clean_pragma = html.unescape(partially_unclean_pragma_value, )
-    # replace with a temporary unique delimiter - for study pragmas
-    safe_pragma = clean_pragma.replace(";Description=", "|||Description=")
-    # replace semicolon in text with a comma
-    safe_pragma = safe_pragma.replace(";", ",")
-    # restore the delimiter
-    clean_pragma_input = safe_pragma.replace("|||Description=", ";Description=")
+    # replace semicolon with a comma
+    clean_pragma_input = replace_additional_semicolons(clean_pragma)
     return clean_pragma_input
 
 def convert_gvf_pragma_comment_to_vcf_header(gvf_pragma_comments_to_convert,

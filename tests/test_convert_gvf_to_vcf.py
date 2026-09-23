@@ -8,7 +8,7 @@ from convert_gvf_to_vcf.convert_gvf_to_vcf_logic import generate_vcf_header_unst
     get_pragma_tokens, \
     get_sample_name_from_pragma, get_unique_sample_names, convert_gvf_pragmas_to_vcf_header, \
     convert_gvf_pragma_comment_to_vcf_header, generate_vcf_header_structured_lines, convert, sort_gvf_file, \
-    create_sorted_gvf_directory, clean_pragma_value
+    create_sorted_gvf_directory, clean_pragma_value, replace_additional_semicolons
 from convert_gvf_to_vcf.project_paths import ProjectPaths
 
 
@@ -75,6 +75,19 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         expected_list = ['##gff-version=3', '##gvf-version=1.06', '##species=http://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=7955', '##fileDate=2015-07-15', '##genome-build=NCBIGRCz10']
         assert list_of_converted_pragmas == expected_list
 
+    def test_replace_additional_semicolons(self):
+
+        input_study_pragma = "First_author=A Per;son,Description=Human genome assembly NCBI34;current human genome assembly, GRCh37. "
+        expected_study_pragma = "First_author=A Per,son,Description=Human genome assembly NCBI34,current human genome assembly, GRCh37. "
+        output_study_pragma =replace_additional_semicolons(input_study_pragma)
+        assert output_study_pragma == expected_study_pragma
+
+        input_publication_pragma = "PMID=12058347;Journal=American journal of human genetics;Paper_title=Heterozygous submicroscopic inversions involving olfactory receptor-gene clusters mediate the recurrent t(4;8)(p16;p23) translocation.;Publication_year=2002"
+        expected_publication_pragma = "PMID=12058347;Journal=American journal of human genetics;Paper_title=Heterozygous submicroscopic inversions involving olfactory receptor-gene clusters mediate the recurrent t(4;8)(p16;p23) translocation.;Publication_year=2002"
+        # NOTE: we wish to keep the genetic notation t(4;8)(p16;p23)
+        output_publication_pragma =replace_additional_semicolons(input_publication_pragma)
+
+        assert output_publication_pragma == expected_publication_pragma
     def test_clean_pragma_value(self):
         # additional semi-colon
         unclean_pragma_lineA = "First_author=A. Person;Description=Human genome assembly NCBI34; current human genome assembly, GRCh37."
