@@ -8,7 +8,7 @@ from convert_gvf_to_vcf.convert_gvf_to_vcf_logic import generate_vcf_header_unst
     get_pragma_tokens, \
     get_sample_name_from_pragma, get_unique_sample_names, convert_gvf_pragmas_to_vcf_header, \
     convert_gvf_pragma_comment_to_vcf_header, generate_vcf_header_structured_lines, convert, sort_gvf_file, \
-    create_sorted_gvf_directory, clean_pragma_value, replace_additional_semicolons
+    create_sorted_gvf_directory, clean_pragma_value, replace_additional_semicolons, parse_pragma_value
 from convert_gvf_to_vcf.project_paths import ProjectPaths
 
 
@@ -117,6 +117,12 @@ class TestConvertGVFtoVCF(unittest.TestCase):
         assert clean_pragma_lineC == expected_clean_pragma_lineC
         assert clean_pragma_lineD == expected_clean_pragma_lineD
         assert clean_pragma_lineE == expected_clean_pragma_lineE
+
+    def test_parse_pragma_comments(self):
+        gvf_pragma_value = "PMID=12058347;Journal=American journal of human genetics;Paper_title=Heterozygous submicroscopic inversions involving olfactory receptor-gene clusters mediate the recurrent t(4;8)(p16;p23) translocation.;Publication_year=2002"
+        converted_values = parse_pragma_value(gvf_pragma_value)
+        expected_values = ['##PMID=12058347', '##Journal=American journal of human genetics', '##Paper_title=Heterozygous submicroscopic inversions involving olfactory receptor-gene clusters mediate the recurrent t(4;8)(p16;p23) translocation.', '##Publication_year=2002']
+        assert converted_values == expected_values
 
     def test_convert_gvf_pragma_comment_to_vcf_header(self):
         gvf_pragma_comments_to_convert = ['#Study_accession: nstd62', '#Study_type: Control Set', '#Display_name: Brown_et_al_2012', '#Publication: PMID=22203992;Journal=Proceedings of the National Academy of Sciences of the United States of America;Paper_title=Extensive genetic diversity and substructuring among zebrafish strains revealed through copy number variant analysis.;Publication_year=2012', '#Study: First_author=Kim Brown;Description=Comparative genomic hybridization analysis of 3 laboratory and one wild zebrafish populations for Copy Number Variants', '#Assembly_name: GRCz10', '#subject: subject_name=Wilds2-3', '#subject: subject_name=Zon9', '#subject: subject_name=JenMale7;subject_sex=Male', '#subject: subject_name=JenMale6;subject_sex=Male', '#sample: sample_name=JenMale6;subject_name=JenMale6', '#sample: sample_name=Wilds2-3;subject_name=Wilds2-3', '#sample: sample_name=Zon9;subject_name=Zon9', '#sample: sample_name=JenMale7;subject_name=JenMale7', '#testing_unknown_pragma']
