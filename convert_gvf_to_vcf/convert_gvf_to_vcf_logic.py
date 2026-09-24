@@ -392,7 +392,7 @@ def _log_memory_used_processing_gvf(gvf_lines_read, vcf_line_buffer, interval=10
     """
     if gvf_lines_read % interval == 0:
         buffer_size = sys.getsizeof(vcf_line_buffer) # measured in bytes
-        logger.info(f"[MEMORY LOG] Processed {gvf_lines_read} GVF lines | "
+        logger.debug(f"[MEMORY LOG] Processed {gvf_lines_read} GVF lines | "
                     f"Current Memory buffer: {len(vcf_line_buffer)} VCF lines |"
                     f"Memory used by buffer: {buffer_size}")
 
@@ -402,9 +402,9 @@ def _log_top_three_memory_allocations():
     snapshot = tracemalloc.take_snapshot()
     top_stats = snapshot.statistics('lineno')
 
-    logger.info("[MEMORY DIAGNOSTIC] TOP 3 CODE LINES")
+    logger.debug("[MEMORY DIAGNOSTIC] TOP 3 CODE LINES")
     for index, stat in enumerate(top_stats[:3], 1):
-        logger.info(f"#{index}: {stat}")
+        logger.debug(f"#{index}: {stat}")
     tracemalloc.stop()
 
 def stream_gvf_to_vcf_data(gvf_reader, report, samples, vcf_builder, vcf_output):
