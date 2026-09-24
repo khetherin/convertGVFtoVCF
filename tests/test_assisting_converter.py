@@ -229,18 +229,30 @@ class TestAssistingConverter(unittest.TestCase):
         number_of_INFO_headers_from_this_gvf_row = len(self.field_lines_dictionary["INFO"])
         number_of_FORMAT_headers_from_this_gvf_row = len(self.field_lines_dictionary["FORMAT"])
         # self.field_lines_dictionary["INFO"] now has 5 headers in it
-        # self.field_lines_dictionary["INFO"] now has 1 headers in it
+        # self.field_lines_dictionary["FORMAT"] now has 1 headers in it
 
         # loop through this for 50 rows of data - identical
         for _ in range(49):
             transformer.convert_gvf_attributes_to_vcf_values()
+
+        # then create another row of gvf attributes - note extra field allele number
+        col9_2 = "ID=2;Name=nssv1412199;Alias=CNV28955;parent=nsv811094;Start_range=.,1;End_range=2,.;sample_name=Wilds2-3;Genotype=0:1;allele_number=3"
+        new_key_parser = GvfAttributeParser(col9_2)
+        new_key_transformer = GvfAttributeTransformer(self.mapping_dictionary, self.field_lines_dictionary,
+                                                      self.all_possible_lines_dictionary, new_key_parser)
+        # set the processed INFO and FORMAT
+        new_key_transformer._processed_info_keys = transformer._processed_info_keys
+        new_key_transformer._processed_format_keys = transformer._processed_format_keys
+        new_key_transformer.convert_gvf_attributes_to_vcf_values()
+
         # check the set of headers was stored once and not 50 times
         total_stored_INFO_headers = len(self.field_lines_dictionary["INFO"])
         total_stored_FORMAT_headers = len(self.field_lines_dictionary["FORMAT"])
 
         # check if headers were stored once else prints error message.
+        # plus 1 because of allele number being added in row 2
         self.assertEqual(
-            total_stored_INFO_headers, number_of_INFO_headers_from_this_gvf_row,
+            total_stored_INFO_headers, number_of_INFO_headers_from_this_gvf_row + 1,
             f"Memory spike! Header contains {total_stored_INFO_headers} lines instead of {number_of_INFO_headers_from_this_gvf_row}."
         )
         self.assertEqual(
