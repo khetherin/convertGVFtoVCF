@@ -241,9 +241,9 @@ class TestAssistingConverter(unittest.TestCase):
         # check if headers were stored once else prints error message.
         self.assertEqual(
             total_stored_INFO_headers, number_of_INFO_headers_from_this_gvf_row,
-            f"Memory spike! Header was added {total_stored_INFO_headers} times instead of {number_of_INFO_headers_from_this_gvf_row}."
+            f"Memory spike! Header contains {total_stored_INFO_headers} lines instead of {number_of_INFO_headers_from_this_gvf_row}."
         )
         self.assertEqual(
             total_stored_FORMAT_headers, number_of_FORMAT_headers_from_this_gvf_row,
-            f"Memory spike! Header was added {total_stored_FORMAT_headers} times instead of {number_of_FORMAT_headers_from_this_gvf_row}."
+            f"Memory spike! Header contains {total_stored_FORMAT_headers} lines instead of {number_of_FORMAT_headers_from_this_gvf_row}."
         )
