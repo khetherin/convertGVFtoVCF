@@ -53,13 +53,20 @@ workflow {
     // then it copies those files (fasta and assembly report) to the output/clean_reference_sequences/species/genbank_accession
     RENAME_CONTIGS(assembly_ch)
 
+    // stores one tuple per study_accession then gvf_file_finder.py will traverse the folder to find all gvfs for that study_accession
+    study_accession_ch = RENAME_CONTIGS.out.ready_to_convert
+    .unique { species, assembly_accession, gvf_simple_name, renamed_fasta ->
+        // use this split string to detect and discard duplicates (study_accession)
+        return gvf_simple_name.split('_')[0]
+    }
+
     // Step 4 : CONVERT GVF TO VCF
     CONVERT_GVF_TO_VCF(
         input_dir_ch,
         config_file_ch,
         finder_script_ch,
         credentials_ch,
-        RENAME_CONTIGS.out.ready_to_convert
+        study_accession_ch
     )
 
     // Step 5: Validate submission
