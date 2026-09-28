@@ -71,6 +71,8 @@ class GvfAttributeTransformer:
         self._field_lines_dictionary = field_lines_dictionary
         self._all_possible_lines_dictionary = all_possible_lines_dictionary
         self.gvf_parser = gvf_parser
+        self._processed_info_keys = set()
+        self._processed_format_keys = set()
 
     def convert_gvf_attributes_to_vcf_values(self):
         """Converts GVF attributes to a dictionary that will store VCF values.
@@ -162,7 +164,9 @@ class GvfAttributeTransformer:
         :param vcf_format_values: dictionary of sample names to FORMAT field key-value pairs
         """
         target_key = field_values[field]["FieldKey"]
-        self._field_lines_dictionary[field].append(self._all_possible_lines_dictionary[field][target_key])
+        if target_key not in self._processed_format_keys:
+            self._field_lines_dictionary[field].append(self._all_possible_lines_dictionary[field][target_key])
+            self._processed_format_keys.add(target_key)
         sample_name = gvf_attribute_dictionary.get("sample_name")
         if sample_name in vcf_format_values:
             vcf_format_values[sample_name].update({target_key: gvf_attribute_dictionary[attrib_key]})
@@ -179,15 +183,18 @@ class GvfAttributeTransformer:
         :param gvf_attribute_dictionary: parsed attributes from the GVF line
         :param vcf_info_values: dictionary of sample names to INFO field key-value pairs
         """
-        header = generate_custom_structured_meta_line(
-            field=field,
-            idkey=field_values[field]["FieldKey"],
-            number=field_values[field]["Number"],
-            data_type=field_values[field]["Type"],
-            description=field_values[field]["Description"],
-            optional_data=None
-        )
-        self._field_lines_dictionary[field].append(header)
+        target_key = field_values[field]["FieldKey"]
+        if target_key not in self._processed_info_keys:
+            header = generate_custom_structured_meta_line(
+                field=field,
+                idkey=field_values[field]["FieldKey"],
+                number=field_values[field]["Number"],
+                data_type=field_values[field]["Type"],
+                description=field_values[field]["Description"],
+                optional_data=None
+            )
+            self._field_lines_dictionary[field].append(header)
+            self._processed_info_keys.add(target_key)
         vcf_info_values[field_values[field]["FieldKey"]] = gvf_attribute_dictionary[attrib_key]
 
 
