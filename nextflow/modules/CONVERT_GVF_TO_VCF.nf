@@ -1,5 +1,5 @@
 process CONVERT_GVF_TO_VCF {
-    tag {"Finding and converting GVF files for: ${gvf_simple_name.split('_')[0]}"}
+    tag "Finding and converting GVF files for: ${gvf_simple_name.split('_')[0]}"
     
     publishDir "${params.output_dir}", mode: 'copy' // copy to output directory
 
