@@ -10,7 +10,6 @@ include { SUBMIT_TO_EVA } from './modules/SUBMIT_TO_EVA.nf'
 
 workflow {
 
-    def config_file = file(params.tool_config, checkIfExists: true)
     log.info """
         =======================================================
         ConvertGVFtoVCF Nextflow Pipeline Startup
@@ -21,16 +20,15 @@ workflow {
         Output Directory  : ${params.output_dir}
         =======================================================
     """
-    // Step 1: SET UP AND PRE-FLIGHT CHECKS AND GET CREDENTIALS AHEAD OF TIME
+    // Step 1: SET UP CHANNELS
+    //VALUE CHANNELS - static
     input_dir_ch     = Channel.value(file(params.input_dir, type: 'dir', checkIfExists: true))
-    config_file_ch   = Channel.value(config_file)
-
+    config_file_ch   = Channel.value(file(params.tool_config, checkIfExists: true))
     credentials_ch = PARSE_CREDENTIALS(config_file_ch)
-
     finder_script_ch = Channel.value(file("${params.executable.convert_gvf.script_path}/gvf_file_finder.py", checkIfExists: true))
-    
-    // Step 2: FIND PATHS
-    gvf_files_ch   = Channel.fromPath("${params.input_dir}/**/*.gvf")
+    // QUEUE CHANNELS - dynamic and trigger a new parallel task down stream
+    gvf_files_ch   = Channel.fromPath("${params.input_dir}/*/gvf/*.gvf")
+    // Step 2: for each GVF file prints the following to the work dir: assembly_name, fasta, report, genbank_accession
     GET_ASSEMBLY_PATHS(gvf_files_ch)
 
     assembly_ch = GET_ASSEMBLY_PATHS.out.map { gvf, assembly_file, fasta_file, report_file, accession_file ->
@@ -40,45 +38,43 @@ workflow {
         def match = (fasta_str =~ /\/([^\/]+)\/[^\/]+\/[^\/]+\.[a-zA-Z0-9]+$/)
         def species_name = match.find() ? match[0][1] : "unknown_species"
 
-
+        // KEY: this is the gvf and its assembly, fa, assembly report and genbank_accession
         return tuple(
-            gvf, 
-            assembly_file.text.trim(), 
-            fasta_str, 
-            report_file.text.trim(), 
+            gvf,
+            assembly_file.text.trim(),
+            fasta_str,
+            report_file.text.trim(),
             accession_str,
             species_name
         )
     }
     // Step 3 : ENSURE CONSISTENT CHROMOSOME NAMING CONVENTION FOR THE ASSEMBLY
+    // RENAME_CONTIGS creates in the work dir: fasta and assembly report
+    // then it copies those files (fasta and assembly report) to the output/clean_reference_sequences/species/genbank_accession
     RENAME_CONTIGS(assembly_ch)
 
-    // Step 4 : CONVERT GVF TO VCF
-    study_accession_ch = params.study_accession ? Channel.value(params.study_accession) : gvf_files_ch.map { file -> file.name.tokenize('_')[0] }.unique()
+    // stores one tuple per study_accession then gvf_file_finder.py will traverse the folder to find all gvfs for that study_accession
+    study_accession_ch = RENAME_CONTIGS.out.ready_to_convert
+    .unique { species, assembly_accession, gvf_simple_name, renamed_fasta ->
+        // use this split string to detect and discard duplicates (study_accession)
+        return gvf_simple_name.split('_')[0]
+    }
 
+    // Step 4 : CONVERT GVF TO VCF
     CONVERT_GVF_TO_VCF(
-        study_accession_ch, 
-        input_dir_ch, 
-        config_file_ch, 
+        input_dir_ch,
+        config_file_ch,
         finder_script_ch,
         credentials_ch,
-        RENAME_CONTIGS.out.renamed_fasta.collect()
+        study_accession_ch
     )
+
     // Step 5: Validate submission
-    study_names_ch = CONVERT_GVF_TO_VCF.out.status_trigger
-        .flatMap { token ->
-            def pattern = params.study_accession ? "${params.output_dir}/submission/${params.study_accession}*" : "${params.output_dir}/submission/{e,n}std[0-9]*_*"
-            return file(pattern, type: 'dir').collect { it.name }
-        }
-
-    study_accessions_ch = study_names_ch.map { name -> name.split('_')[0] }
-
     VALIDATE_SUBMISSION(
-        study_names_ch,
-        study_accessions_ch,
         CONVERT_GVF_TO_VCF.out.status_trigger
     )
-    // Step 6: Submit submission to EVA 
+
+    // Step 6: Submit submission to EVA
     successful_logs_ch = VALIDATE_SUBMISSION.out.validation_log
         .filter { log_file ->
             log_file.readLines().any { line -> line.contains("Validation result: SUCCESS") }
@@ -90,4 +86,5 @@ workflow {
         json: file("${params.output_dir}/submission/${log_file.parent.name}/eva_submission_*.json")
     }
     SUBMIT_TO_EVA(successful_logs_ch, PARSE_CREDENTIALS.out.credentials, submit_inputs.dir, submit_inputs.json)
+
 }
