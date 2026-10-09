@@ -946,6 +946,8 @@ class EVAMetadataRetriever(BaseMetadataRetriever):
         )
         hold_date_list = self.load_from_db(hold_date_query.get_sql(quote_char=None))
         [hold_date, *_] = self.fetch_results_from_rows("holdDate", hold_date_list) or [""]
+        if isinstance(hold_date, datetime):
+            return hold_date.strftime('%Y-%m-%d')
         return hold_date
 
     def _fetch_scientific_name(self, study_accession):

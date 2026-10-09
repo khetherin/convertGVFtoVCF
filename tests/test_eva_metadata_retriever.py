@@ -2,6 +2,7 @@ import os
 from unittest import TestCase
 from unittest.mock import patch, MagicMock, Mock
 from collections import namedtuple
+from datetime import datetime
 
 from convert_gvf_to_vcf.metadata_retrievers.eva_metadata import EVAMetadataRetriever
 from convert_gvf_to_vcf.project_paths import ProjectPaths
@@ -347,6 +348,23 @@ class TestEVAMetadataRetriever(TestCase):
         self.assertEqual(result[0].get("analysisAlias"), expected[0].get("analysisAlias"))
         self.assertEqual(result[0].get("fileName"), expected[0].get("fileName"))
 
+    @patch("convert_gvf_to_vcf.metadata_retrievers.eva_metadata.EVAMetadataRetriever.fetch_results_from_rows")
+    @patch("convert_gvf_to_vcf.metadata_retrievers.eva_metadata.EVAMetadataRetriever.load_from_db")
+    def test__fetch_hold_date(self, mock_load, mock_fetch_rows):
+        metadata_client = EVAMetadataRetriever(self.config)
+        mock_load.return_value = ["mocked_raw_row"]
+
+        # test when db returns a datetime object
+        mock_fetch_rows.return_value = [datetime(2016, 7, 31, 0, 0)]
+        self.assertEqual(metadata_client._fetch_hold_date("estd123"), "2016-07-31")
+
+        # test when db returns a string
+        mock_fetch_rows.return_value = ["2026-10-09"]
+        self.assertEqual(metadata_client._fetch_hold_date("estd123"), "2026-10-09")
+
+        # test when db returns empty/None results
+        mock_fetch_rows.return_value = None
+        self.assertEqual(metadata_client._fetch_hold_date("estd123"), "")
 
     @patch("convert_gvf_to_vcf.metadata_retrievers.eva_metadata.EVAMetadataRetriever.load_from_db")
     def test__fetch_project_peer_project(self, mock_load):
