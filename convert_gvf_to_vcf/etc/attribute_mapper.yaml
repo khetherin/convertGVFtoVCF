@@ -371,6 +371,12 @@ homseq:
         Type: String
         Description: "Sequence of base pair identical micro-homology at breakpoints"
         From: SVVCF
+indel:
+    ALT:
+        FieldKey: IND
+        Description: "Indel"
+        From: SVVCF
+        SOID: SO:1000032
 insertion:
     ALT:
         FieldKey: INS
@@ -565,6 +571,12 @@ repeat_base_indiv:
         Type: Integer
         Description: "Number of bases in each individual repeat unit"
         From: SVVCF
+short_tandem_repeat:
+    ALT:
+        FieldKey: CNV:TR
+        Description: "Tandem repeat determined based on DNA abundance"
+        From: SVVCF
+        SOID: SO:0002096
 short_tandem_repeat_variation:
     ALT:
         FieldKey: CNV:TR
